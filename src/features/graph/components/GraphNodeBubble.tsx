@@ -59,6 +59,17 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
     }
   }, [])
 
+  const resetTouchLongPress = (target: HTMLButtonElement, pointerId: number): void => {
+    clearLongPressTimer()
+
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId)
+    }
+
+    longPressPointerIdRef.current = null
+    longPressStartPointRef.current = null
+  }
+
   return (
     <button
       type="button"
@@ -98,6 +109,7 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
           x: event.clientX,
           y: event.clientY,
         }
+        event.currentTarget.setPointerCapture(event.pointerId)
 
         clearLongPressTimer()
         const contextX = event.clientX
@@ -133,25 +145,14 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
           return
         }
 
-        clearLongPressTimer()
-        longPressPointerIdRef.current = null
-        longPressStartPointRef.current = null
+        resetTouchLongPress(event.currentTarget, event.pointerId)
       }}
       onPointerCancel={(event) => {
         if (event.pointerType !== 'touch' || longPressPointerIdRef.current !== event.pointerId) {
           return
         }
 
-        clearLongPressTimer()
-        longPressPointerIdRef.current = null
-        longPressStartPointRef.current = null
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== 'touch' || longPressPointerIdRef.current !== event.pointerId) {
-          return
-        }
-
-        clearLongPressTimer()
+        resetTouchLongPress(event.currentTarget, event.pointerId)
       }}
       onContextMenu={(event) => {
         event.preventDefault()

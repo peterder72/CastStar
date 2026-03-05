@@ -10,6 +10,7 @@ import type { GraphNode, NodePhysics } from '../../../types'
 interface UseGraphWorkspaceOptions {
   onNodeClick?: () => void
   onSearchEntityAdded?: () => void
+  onNodeContextMenuOpen?: () => void
 }
 
 export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
@@ -102,6 +103,14 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
     [data, options],
   )
 
+  const openNodeContextMenu = useCallback(
+    (nodeKey: string, x: number, y: number): void => {
+      options.onNodeContextMenuOpen?.()
+      data.openNodeContextMenu(nodeKey, x, y)
+    },
+    [data, options],
+  )
+
   return {
     viewportRef,
     nodes: data.nodes,
@@ -151,7 +160,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
     togglePhysicsSettings,
     updatePhysicsSetting,
     clearCanvasSelection,
-    openNodeContextMenu: data.openNodeContextMenu,
+    openNodeContextMenu,
     dismissContextMenu: data.dismissContextMenu,
   }
 }

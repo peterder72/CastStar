@@ -7,7 +7,14 @@ import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
 import { isDemoModeEnabled } from './tmdb'
 
 interface HapticsController {
-  trigger: (input?: string | number) => Promise<void>
+  trigger: (
+    input?:
+      | string
+      | number
+      | number[]
+      | Array<{ duration: number; delay?: number; intensity?: number }>
+      | { pattern: Array<{ duration: number; delay?: number; intensity?: number }> },
+  ) => Promise<void>
   destroy: () => void
 }
 
@@ -19,9 +26,17 @@ function App() {
     void mobileHapticsRef.current?.trigger(20)
   }, [])
 
+  const triggerContextMenuOpenHaptic = useCallback(() => {
+    void mobileHapticsRef.current?.trigger([
+      { duration: 16, intensity: 0.35 },
+      { delay: 90, duration: 30, intensity: 1 },
+    ])
+  }, [])
+
   const workspace = useGraphWorkspace({
     onNodeClick: triggerShortTapHaptic,
     onSearchEntityAdded: triggerShortTapHaptic,
+    onNodeContextMenuOpen: triggerContextMenuOpenHaptic,
   })
 
   useEffect(() => {
@@ -50,21 +65,9 @@ function App() {
     }
   }, [])
 
-  const triggerToolbarOpenHaptic = useCallback(() => {
-    void mobileHapticsRef.current?.trigger('nudge')
-  }, [])
-
   const toggleSearchOnlyMode = useCallback(() => {
-    setSearchOnlyMode((value) => {
-      const nextValue = !value
-
-      if (value && !nextValue) {
-        triggerToolbarOpenHaptic()
-      }
-
-      return nextValue
-    })
-  }, [triggerToolbarOpenHaptic])
+    setSearchOnlyMode((value) => !value)
+  }, [])
 
   return (
     <div
