@@ -1,4 +1,4 @@
-import type { NodeKind, NodePhysics } from '../../types'
+import type { GraphNode, NodeKind, NodePhysics } from '../../types'
 
 export interface Point {
   x: number
@@ -24,6 +24,8 @@ export interface HiddenEntity {
   key: string
   title: string
   kind: NodeKind
+  nodeSnapshot?: GraphNode
+  connectionKeys?: string[]
 }
 
 export interface NodeContextMenuState {

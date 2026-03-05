@@ -74,7 +74,9 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const hiddenKeysRef = useRef(new Set<string>())
+  const hiddenEntitiesRef = useRef(hiddenEntities)
   const relatedCacheRef = useRef<Record<string, DiscoverEntity[]>>({})
+  const replayQueueRef = useRef<Record<string, string[]>>({})
   const excludeSelfAppearancesRef = useRef(excludeSelfAppearances)
 
   useEffect(() => {
@@ -87,6 +89,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
   useEffect(() => {
     hiddenKeysRef.current = new Set(Object.keys(hiddenEntities))
+    hiddenEntitiesRef.current = hiddenEntities
   }, [hiddenEntities])
 
   useEffect(() => {
@@ -285,6 +288,16 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       }
     }
 
+    if (Object.keys(replayQueueRef.current).length > 0) {
+      const nextReplayQueue = { ...replayQueueRef.current }
+
+      for (const key of keysToRemove) {
+        delete nextReplayQueue[key]
+      }
+
+      replayQueueRef.current = nextReplayQueue
+    }
+
     nodesRef.current = nextNodes
     edgesRef.current = nextEdges
     setNodes(nextNodes)
@@ -319,6 +332,99 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     edgesRef.current = nextEdges
     setEdges(nextEdges)
   }, [])
+
+  const getConnectedNodeKeys = useCallback((nodeKey: string): Set<string> => {
+    const connected = new Set<string>()
+
+    for (const edge of Object.values(edgesRef.current)) {
+      if (edge.source === nodeKey) {
+        connected.add(edge.target)
+        continue
+      }
+
+      if (edge.target === nodeKey) {
+        connected.add(edge.source)
+      }
+    }
+
+    return connected
+  }, [])
+
+  const queueReplayEntities = useCallback((nodeKey: string, keys: Iterable<string>): void => {
+    const requested = new Set(keys)
+
+    if (requested.size === 0) {
+      return
+    }
+
+    const related = relatedCacheRef.current[nodeKey]
+
+    if (!related) {
+      return
+    }
+
+    const existingQueue = replayQueueRef.current[nodeKey] ?? []
+    const orderedKeys: string[] = []
+
+    for (const candidate of related) {
+      const candidateKey = entityKey(candidate)
+
+      if (requested.has(candidateKey)) {
+        orderedKeys.push(candidateKey)
+      }
+    }
+
+    if (orderedKeys.length === 0) {
+      return
+    }
+
+    const seen = new Set(existingQueue)
+    const mergedQueue = [...existingQueue]
+
+    for (const candidateKey of orderedKeys) {
+      if (!seen.has(candidateKey)) {
+        mergedQueue.push(candidateKey)
+        seen.add(candidateKey)
+      }
+    }
+
+    replayQueueRef.current = {
+      ...replayQueueRef.current,
+      [nodeKey]: mergedQueue,
+    }
+  }, [])
+
+  const restoreHiddenEntityToGraph = useCallback(
+    (item: HiddenEntity): void => {
+      const snapshot = item.nodeSnapshot
+
+      if (snapshot && !nodesRef.current[item.key]) {
+        const nextNodes = {
+          ...nodesRef.current,
+          [item.key]: {
+            ...snapshot,
+            loading: false,
+          },
+        }
+
+        nodesRef.current = nextNodes
+        setNodes(nextNodes)
+      }
+
+      if (!nodesRef.current[item.key]) {
+        return
+      }
+
+      for (const connectedKey of item.connectionKeys ?? []) {
+        if (!nodesRef.current[connectedKey] || hiddenKeysRef.current.has(connectedKey)) {
+          continue
+        }
+
+        ensureEdge(item.key, connectedKey)
+      }
+    },
+    [ensureEdge],
+  )
 
   const expansionPosition = useCallback(
     (parentNode: GraphNode, absoluteIndex: number): Point => {
@@ -365,6 +471,8 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         return
       }
 
+      const connectedNodeKeys = Array.from(getConnectedNodeKeys(nodeKey))
+
       setHiddenEntities((current) => {
         if (current[nodeKey]) {
           return current
@@ -376,6 +484,11 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
             key: node.key,
             title: node.title,
             kind: node.kind,
+            nodeSnapshot: {
+              ...node,
+              loading: false,
+            },
+            connectionKeys: connectedNodeKeys,
           },
         }
       })
@@ -384,7 +497,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       setContextMenu(null)
       setErrorMessage(null)
     },
-    [removeNodesFromGraph],
+    [getConnectedNodeKeys, removeNodesFromGraph],
   )
 
   const deleteNodeFromBoard = useCallback(
@@ -439,11 +552,12 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         return
       }
 
+      queueReplayEntities(nodeKey, removable)
       removeNodesFromGraph(removable)
       setContextMenu(null)
       setErrorMessage(null)
     },
-    [removeNodesFromGraph],
+    [queueReplayEntities, removeNodesFromGraph],
   )
 
   const expandNode = useCallback(
@@ -473,17 +587,72 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
         const start = latestNode.expansionCursor
         const batch: DiscoverEntity[] = []
+        const batchKeys = new Set<string>()
+        const relatedByKey = new Map<string, DiscoverEntity>()
+        const connectedKeys = getConnectedNodeKeys(nodeKey)
         let cursor = start
+
+        for (const candidate of related) {
+          relatedByKey.set(entityKey(candidate), candidate)
+        }
+
+        const replayQueue = replayQueueRef.current[nodeKey] ?? []
+
+        if (replayQueue.length > 0) {
+          const deferredQueue: string[] = []
+
+          for (const replayKey of replayQueue) {
+            if (batch.length >= EXPAND_BATCH_SIZE) {
+              deferredQueue.push(replayKey)
+              continue
+            }
+
+            if (batchKeys.has(replayKey) || connectedKeys.has(replayKey)) {
+              continue
+            }
+
+            const candidate = relatedByKey.get(replayKey)
+
+            if (!candidate) {
+              continue
+            }
+
+            if (shouldSkipRelatedEntity(latestNode, candidate)) {
+              deferredQueue.push(replayKey)
+              continue
+            }
+
+            batch.push(candidate)
+            batchKeys.add(replayKey)
+          }
+
+          if (deferredQueue.length > 0) {
+            replayQueueRef.current = {
+              ...replayQueueRef.current,
+              [nodeKey]: deferredQueue,
+            }
+          } else {
+            const nextReplayQueue = { ...replayQueueRef.current }
+            delete nextReplayQueue[nodeKey]
+            replayQueueRef.current = nextReplayQueue
+          }
+        }
 
         while (cursor < related.length && batch.length < EXPAND_BATCH_SIZE) {
           const candidate = related[cursor]
+          const candidateKey = entityKey(candidate)
           cursor += 1
+
+          if (batchKeys.has(candidateKey) || connectedKeys.has(candidateKey)) {
+            continue
+          }
 
           if (shouldSkipRelatedEntity(latestNode, candidate)) {
             continue
           }
 
           batch.push(candidate)
+          batchKeys.add(candidateKey)
         }
 
         if (batch.length === 0) {
@@ -517,7 +686,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         setErrorMessage(message)
       }
     },
-    [ensureEdge, ensureNode, expansionPosition, patchNode, shouldSkipRelatedEntity],
+    [ensureEdge, ensureNode, expansionPosition, getConnectedNodeKeys, patchNode, shouldSkipRelatedEntity],
   )
 
   const handleNodeClick = useCallback(
@@ -533,6 +702,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     nodesRef.current = {}
     edgesRef.current = {}
     relatedCacheRef.current = {}
+    replayQueueRef.current = {}
     setNodes({})
     setEdges({})
     setSelectedNodeKey(null)
@@ -541,20 +711,58 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   }, [])
 
   const unhideEntity = useCallback((key: string): void => {
-    setHiddenEntities((current) => {
-      if (!current[key]) {
-        return current
-      }
+    const item = hiddenEntitiesRef.current[key]
 
-      const next = { ...current }
-      delete next[key]
-      return next
-    })
-  }, [])
+    if (!item) {
+      return
+    }
+
+    const nextHidden = { ...hiddenEntitiesRef.current }
+    delete nextHidden[key]
+
+    hiddenEntitiesRef.current = nextHidden
+    hiddenKeysRef.current = new Set(Object.keys(nextHidden))
+    setHiddenEntities(nextHidden)
+    restoreHiddenEntityToGraph(item)
+  }, [restoreHiddenEntityToGraph])
 
   const clearHiddenEntities = useCallback((): void => {
+    const hiddenItems = Object.values(hiddenEntitiesRef.current)
+
+    if (hiddenItems.length === 0) {
+      return
+    }
+
+    const nextNodes = { ...nodesRef.current }
+    let hasNodeChanges = false
+
+    for (const item of hiddenItems) {
+      const snapshot = item.nodeSnapshot
+
+      if (!snapshot || nextNodes[item.key]) {
+        continue
+      }
+
+      nextNodes[item.key] = {
+        ...snapshot,
+        loading: false,
+      }
+      hasNodeChanges = true
+    }
+
+    if (hasNodeChanges) {
+      nodesRef.current = nextNodes
+      setNodes(nextNodes)
+    }
+
+    hiddenEntitiesRef.current = {}
+    hiddenKeysRef.current = new Set()
     setHiddenEntities({})
-  }, [])
+
+    for (const item of hiddenItems) {
+      restoreHiddenEntityToGraph(item)
+    }
+  }, [restoreHiddenEntityToGraph])
 
   const getRemainingRelatedCount = useCallback(
     (node: GraphNode): number => {
@@ -564,17 +772,47 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         return 0
       }
 
+      const relatedByKey = new Map<string, DiscoverEntity>()
+      const connectedKeys = getConnectedNodeKeys(node.key)
+      const counted = new Set<string>()
       let remaining = 0
 
+      for (const candidate of related) {
+        relatedByKey.set(entityKey(candidate), candidate)
+      }
+
+      for (const queuedKey of replayQueueRef.current[node.key] ?? []) {
+        if (counted.has(queuedKey) || connectedKeys.has(queuedKey)) {
+          continue
+        }
+
+        const candidate = relatedByKey.get(queuedKey)
+
+        if (!candidate || shouldSkipRelatedEntity(node, candidate)) {
+          continue
+        }
+
+        counted.add(queuedKey)
+        remaining += 1
+      }
+
       for (let index = node.expansionCursor; index < related.length; index += 1) {
-        if (!shouldSkipRelatedEntity(node, related[index])) {
+        const candidate = related[index]
+        const candidateKey = entityKey(candidate)
+
+        if (counted.has(candidateKey) || connectedKeys.has(candidateKey)) {
+          continue
+        }
+
+        if (!shouldSkipRelatedEntity(node, candidate)) {
+          counted.add(candidateKey)
           remaining += 1
         }
       }
 
       return remaining
     },
-    [shouldSkipRelatedEntity],
+    [getConnectedNodeKeys, shouldSkipRelatedEntity],
   )
 
   const nodeList = useMemo(() => Object.values(nodes), [nodes])
