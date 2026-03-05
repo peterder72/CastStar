@@ -2,6 +2,7 @@
 
 declare const __TMDB_API_KEY__: string
 declare const __CASTSTAR_DEMO__: string
+declare const __APP_VERSION__: string
 
 interface ImportMetaEnv {
   readonly VITE_TMDB_API_KEY?: string

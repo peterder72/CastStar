@@ -8,6 +8,9 @@ import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
 import { isDemoModeEnabled, isTokenConfigurable } from './tmdb'
 import TokenSettingsModal from './components/TokenSettingsModal'
 
+const REPOSITORY_URL = 'https://github.com/peterder72/CastStar'
+const APP_VERSION_LABEL = `v${__APP_VERSION__}`
+
 function App() {
   const [searchOnlyMode, setSearchOnlyMode] = useState(false)
   const [tokenModalKey, setTokenModalKey] = useState(0)
@@ -116,7 +119,30 @@ function App() {
         onDeleteNode={workspace.deleteNodeFromBoard}
       />
 
-      <PerformanceHud stats={workspace.performanceStats} />
+      <div className="pointer-events-none absolute bottom-2.5 right-2.5 z-[80] flex items-end gap-2 sm:bottom-3 sm:right-3">
+        <PerformanceHud stats={workspace.performanceStats} />
+
+        <span
+          className="pointer-events-auto inline-flex items-center rounded-xl border border-slate-500/70 bg-slate-950/78 px-2.5 py-1.5 font-mono text-[0.72rem] text-cyan-100 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md sm:text-[0.76rem]"
+          aria-label={`CastStar version ${APP_VERSION_LABEL}`}
+          title="App version"
+        >
+          {APP_VERSION_LABEL}
+        </span>
+
+        <a
+          href={REPOSITORY_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="pointer-events-auto inline-flex items-center justify-center rounded-xl border border-slate-500/70 bg-slate-950/78 p-2.5 text-slate-200 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition hover:border-cyan-300/65 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/55"
+          aria-label="Open CastStar on GitHub"
+          title="GitHub"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.59 2 12.25c0 4.53 2.87 8.38 6.84 9.73.5.1.66-.22.66-.49v-1.86c-2.78.62-3.36-1.37-3.36-1.37-.45-1.2-1.11-1.52-1.11-1.52-.91-.64.07-.62.07-.62 1 .08 1.54 1.06 1.54 1.06.9 1.57 2.35 1.12 2.92.86.09-.67.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.09 0-1.13.39-2.06 1.03-2.79-.1-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.06A9.3 9.3 0 0 1 12 6.86c.85 0 1.7.12 2.5.36 1.9-1.33 2.75-1.06 2.75-1.06.55 1.42.2 2.47.1 2.73.64.73 1.03 1.66 1.03 2.8 0 3.96-2.34 4.83-4.57 5.08.36.32.69.95.69 1.92v2.85c0 .27.17.6.67.49A10.29 10.29 0 0 0 22 12.25C22 6.59 17.52 2 12 2Z" />
+          </svg>
+        </a>
+      </div>
 
       {isDemoModeEnabled && (
         <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-[80] inline-flex items-center gap-1.5 rounded-xl border border-amber-300/45 bg-slate-950/78 px-2.5 py-1.5 text-amber-200 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md sm:bottom-3 sm:left-3">

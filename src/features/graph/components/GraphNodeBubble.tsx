@@ -166,9 +166,15 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
         className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-400/70 bg-slate-700 text-[0.8rem] font-bold max-[780px]:h-12 max-[780px]:w-12 max-[560px]:h-10 max-[560px]:w-10"
       />
       <span className="min-w-0">
-        <strong className="block truncate text-[0.94rem] max-[560px]:text-[0.85rem]">{node.title}</strong>
-        {node.subtitle && <small className="block truncate text-[0.75rem] text-slate-300 max-[560px]:text-[0.7rem]">{node.subtitle}</small>}
-        <small className="block truncate text-[0.74rem] text-cyan-200 max-[560px]:text-[0.7rem]">{nodeStatusLabel(node, remaining)}</small>
+        <strong className="block break-words text-[0.94rem] leading-tight whitespace-normal max-[560px]:text-[0.85rem]">{node.title}</strong>
+        {node.subtitle && (
+          <small className="block break-words text-[0.75rem] leading-tight whitespace-normal text-slate-300 max-[560px]:text-[0.7rem]">
+            {node.subtitle}
+          </small>
+        )}
+        <small className="block break-words text-[0.74rem] leading-tight whitespace-normal text-cyan-200 max-[560px]:text-[0.7rem]">
+          {nodeStatusLabel(node, remaining)}
+        </small>
       </span>
     </button>
   )

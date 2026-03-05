@@ -139,8 +139,8 @@ function ControlPanel({
                   className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-500/90 bg-slate-700/70 text-[0.72rem] font-bold"
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{result.title}</span>
-                  <small className="block truncate text-[0.73rem] text-slate-300">
+                  <span className="block break-words text-sm font-semibold leading-tight whitespace-normal">{result.title}</span>
+                  <small className="block break-words text-[0.73rem] leading-tight whitespace-normal text-slate-300">
                     {result.kind.toUpperCase()}
                     {result.subtitle ? ` • ${result.subtitle}` : ''}
                   </small>
@@ -230,7 +230,7 @@ function ControlPanel({
                       key={item.key}
                       className="flex items-center justify-between gap-2.5 rounded-lg border border-slate-700/90 bg-slate-900/75 px-2 py-1.5"
                     >
-                      <span className="truncate text-[0.78rem] text-slate-200">
+                      <span className="break-words text-[0.78rem] leading-tight whitespace-normal text-slate-200">
                         {item.title} <small className="text-slate-400">({item.kind.toUpperCase()})</small>
                       </span>
                       <Button onClick={() => onUnhideEntity(item.key)}>
@@ -246,7 +246,7 @@ function ControlPanel({
           {showPhysicsSettings && (
             <PanelCard>
               <div className="flex items-baseline justify-between gap-2.5">
-                <strong className="truncate text-[0.86rem]">Global Physics</strong>
+                <strong className="break-words text-[0.86rem] leading-tight whitespace-normal">Global Physics</strong>
                 <small className="text-[0.74rem] text-slate-300">Applies to all nodes</small>
               </div>
 

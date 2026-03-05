@@ -29,7 +29,7 @@ function NodeContextMenu({ node, position, onHideNode, onPruneLeaves, onDeleteNo
       }}
       onClick={(event) => event.stopPropagation()}
     >
-      <strong className="truncate px-1 pb-0.5 text-[0.82rem] text-slate-100">{node.title}</strong>
+      <strong className="break-words px-1 pb-0.5 text-[0.82rem] leading-tight whitespace-normal text-slate-100">{node.title}</strong>
       <Button size="sm" onClick={() => onHideNode(node.key)}>
         Hide Node (to hidden list)
       </Button>
