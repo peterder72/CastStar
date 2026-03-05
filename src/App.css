@@ -1,0 +1,581 @@
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: radial-gradient(circle at 15% 15%, #1b3b57 0%, #0f1926 45%, #070b11 100%);
+  color: #f2f5f8;
+}
+
+.search-panel {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 50;
+  width: min(760px, calc(100vw - 28px));
+  transform: translateX(-50%);
+  padding: 12px;
+  border: 1px solid #3f5164;
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  background: rgb(8 16 24 / 82%);
+  box-shadow: 0 16px 36px rgb(0 0 0 / 32%);
+}
+
+.search-form {
+  display: flex;
+  gap: 10px;
+}
+
+.search-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #4e6780;
+  border-radius: 10px;
+  background: #0c1724;
+  color: #f2f5f8;
+  font-size: 0.98rem;
+}
+
+.search-form input:focus {
+  outline: none;
+  border-color: #74bcff;
+  box-shadow: 0 0 0 3px rgb(116 188 255 / 24%);
+}
+
+.search-form button {
+  min-width: 84px;
+  padding: 0 14px;
+  border: 1px solid #5f8ec0;
+  border-radius: 10px;
+  background: linear-gradient(160deg, #7ac4ff 0%, #2e66a0 100%);
+  color: #07101a;
+  font-weight: 700;
+}
+
+.search-form button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.search-results {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(42vh, 360px);
+  overflow: auto;
+  border: 1px solid #38506a;
+  border-radius: 10px;
+  background: rgb(7 13 19 / 92%);
+}
+
+.result-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #24384c;
+  padding: 9px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+}
+
+.result-row:hover {
+  background: rgb(120 181 237 / 16%);
+}
+
+.search-results li:last-child .result-row {
+  border-bottom: 0;
+}
+
+.result-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: #1f3347;
+  border: 1px solid #527499;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.result-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-copy span,
+.result-copy small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-copy span {
+  font-weight: 650;
+}
+
+.result-copy small {
+  color: #a7bfd6;
+}
+
+.hint-text,
+.error-text {
+  margin: 9px 2px 0;
+  font-size: 0.86rem;
+}
+
+.hint-text {
+  color: #b1c5da;
+}
+
+.error-text {
+  color: #ff8282;
+}
+
+.control-toolbar {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.input-mode-switch {
+  display: inline-flex;
+  border: 1px solid #3f5d78;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.input-mode-switch button {
+  border: 0;
+  border-right: 1px solid #3f5d78;
+  border-radius: 0;
+  background: rgb(11 24 35 / 88%);
+  color: #b8cde1;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+}
+
+.input-mode-switch button:last-child {
+  border-right: 0;
+}
+
+.input-mode-switch button.is-active {
+  background: linear-gradient(160deg, #7ac4ff 0%, #2e66a0 100%);
+  color: #07101a;
+  font-weight: 700;
+}
+
+.physics-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.physics-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: #b8cde1;
+}
+
+.physics-toolbar input[type='checkbox'] {
+  accent-color: #7ac4ff;
+}
+
+.physics-toolbar button,
+.physics-panel-actions button {
+  border: 1px solid #4a7092;
+  border-radius: 8px;
+  background: rgb(20 38 55 / 84%);
+  color: #d7e9f8;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+}
+
+.filter-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #35526d;
+  border-radius: 10px;
+  background: rgb(6 11 17 / 88%);
+}
+
+.filter-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.filter-panel-head strong {
+  font-size: 0.86rem;
+}
+
+.filter-toggle {
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #b8cde1;
+}
+
+.filter-toggle input[type='checkbox'] {
+  margin-top: 1px;
+  accent-color: #7ac4ff;
+}
+
+.hidden-entities {
+  margin-top: 10px;
+}
+
+.hidden-entities-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hidden-entities-head small {
+  color: #a6bfd5;
+}
+
+.hidden-entities-head button,
+.hidden-entities-list button {
+  border: 1px solid #4a7092;
+  border-radius: 7px;
+  background: rgb(20 38 55 / 84%);
+  color: #d7e9f8;
+  padding: 5px 9px;
+  font-size: 0.73rem;
+}
+
+.hidden-empty {
+  margin-top: 8px;
+  display: block;
+  color: #8fa9be;
+}
+
+.hidden-entities-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  max-height: 130px;
+  overflow: auto;
+}
+
+.hidden-entities-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #2e475e;
+  border-radius: 8px;
+  background: rgb(13 23 34 / 78%);
+}
+
+.hidden-entities-list li span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  color: #c5d7e8;
+}
+
+.hidden-entities-list li span small {
+  color: #8aa4ba;
+}
+
+.physics-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #35526d;
+  border-radius: 10px;
+  background: rgb(6 11 17 / 88%);
+}
+
+.physics-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.physics-panel-head strong {
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.physics-panel-head small {
+  font-size: 0.74rem;
+  color: #a6bfd5;
+}
+
+.physics-controls {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.physics-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.physics-control span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: #b4c8dc;
+}
+
+.physics-control b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.7rem;
+  color: #d8ecff;
+}
+
+.physics-control input[type='range'] {
+  width: 100%;
+}
+
+.physics-panel-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.canvas.is-panning {
+  cursor: grabbing;
+}
+
+.canvas-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(92 132 166 / 24%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(92 132 166 / 24%) 1px, transparent 1px);
+}
+
+.edges-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.edges-layer line {
+  stroke: rgb(141 210 255 / 58%);
+  stroke-width: 1.6;
+}
+
+.bubble {
+  position: absolute;
+  width: 190px;
+  padding: 10px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #50789a;
+  border-radius: 16px;
+  background: rgb(6 12 19 / 90%);
+  color: #f2f5f8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  box-shadow: 0 18px 30px rgb(0 0 0 / 35%);
+}
+
+.bubble:hover {
+  border-color: #8bcfff;
+}
+
+.bubble.is-selected {
+  border-color: #d9f0ff;
+  box-shadow: 0 0 0 2px rgb(217 240 255 / 24%), 0 18px 30px rgb(0 0 0 / 35%);
+}
+
+.bubble-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid #6f98bd;
+  background: #22384d;
+  flex: 0 0 auto;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.bubble-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bubble-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bubble-copy strong,
+.bubble-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble-copy strong {
+  font-size: 0.94rem;
+}
+
+.bubble-copy small {
+  font-size: 0.75rem;
+  color: #b0c3d6;
+}
+
+.bubble-status {
+  color: #8fcaee;
+}
+
+.bubble-person {
+  border-color: #4a7d9f;
+}
+
+.bubble-movie {
+  border-color: #7a6cae;
+}
+
+.bubble-tv {
+  border-color: #5f9d70;
+}
+
+.node-context-menu {
+  position: fixed;
+  z-index: 120;
+  width: 240px;
+  border: 1px solid #3f5f7b;
+  border-radius: 10px;
+  background: rgb(6 11 17 / 96%);
+  box-shadow: 0 18px 36px rgb(0 0 0 / 45%);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.node-context-menu strong {
+  display: block;
+  font-size: 0.82rem;
+  padding: 2px 2px 4px;
+  color: #d8e9f8;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.node-context-menu button {
+  border: 1px solid #4a7092;
+  border-radius: 8px;
+  background: rgb(20 38 55 / 84%);
+  color: #d7e9f8;
+  padding: 7px 9px;
+  text-align: left;
+  font-size: 0.76rem;
+}
+
+.node-context-menu button.danger {
+  border-color: #9f4f4f;
+  color: #ffd3d3;
+  background: rgb(64 21 21 / 88%);
+}
+
+@media (max-width: 780px) {
+  .search-panel {
+    top: 12px;
+    width: calc(100vw - 16px);
+  }
+
+  .control-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input-mode-switch {
+    width: 100%;
+  }
+
+  .input-mode-switch button {
+    flex: 1;
+  }
+
+  .physics-toolbar {
+    justify-content: space-between;
+  }
+
+  .physics-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .hidden-entities-list {
+    max-height: 110px;
+  }
+
+  .bubble {
+    width: 170px;
+    padding: 9px;
+  }
+
+  .bubble-photo {
+    width: 48px;
+    height: 48px;
+  }
+}
