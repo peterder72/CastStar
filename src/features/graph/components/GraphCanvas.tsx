@@ -58,12 +58,17 @@ function GraphCanvas({
       onClick={onCanvasClick}
     >
       <div
-        className="absolute inset-0"
+        className="absolute"
         style={{
+          left: -gridSize,
+          top: -gridSize,
+          width: `calc(100% + ${gridSize * 2}px)`,
+          height: `calc(100% + ${gridSize * 2}px)`,
           backgroundImage:
             'linear-gradient(to right, rgb(103 168 214 / 22%) 1px, transparent 1px), linear-gradient(to bottom, rgb(103 168 214 / 22%) 1px, transparent 1px)',
           backgroundSize: `${gridSize}px ${gridSize}px`,
-          backgroundPosition: `${gridOffsetX}px ${gridOffsetY}px`,
+          transform: `translate3d(${gridOffsetX}px, ${gridOffsetY}px, 0)`,
+          willChange: isPanning ? 'transform' : undefined,
         }}
       />
 

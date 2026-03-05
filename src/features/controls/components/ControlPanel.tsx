@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import { memo, type FormEvent } from 'react'
 import EntityAvatar from '../../../components/EntityAvatar'
 import Button from '../../../components/ui/Button'
 import PanelCard from '../../../components/ui/PanelCard'
@@ -6,7 +6,7 @@ import { cn } from '../../../components/ui/cn'
 import type { DiscoverEntity, NodePhysics } from '../../../types'
 import { entityKey } from '../../../types'
 import { PHYSICS_CONTROLS } from '../../graph/constants'
-import type { HiddenEntity, InputMode } from '../../graph/uiTypes'
+import type { HiddenEntity, InputMode, PerformanceStats } from '../../graph/uiTypes'
 
 interface ControlPanelProps {
   query: string
@@ -14,11 +14,13 @@ interface ControlPanelProps {
   searchResults: DiscoverEntity[]
   searchOpen: boolean
   inputMode: InputMode
+  isPanning: boolean
   physicsEnabled: boolean
   showPhysicsSettings: boolean
   excludeSelfAppearances: boolean
   hiddenEntityList: HiddenEntity[]
   physicsSettings: NodePhysics
+  performanceStats: PerformanceStats
   errorMessage: string | null
   onQueryChange: (value: string) => void
   onSearchFocus: () => void
@@ -53,11 +55,13 @@ function ControlPanel({
   searchResults,
   searchOpen,
   inputMode,
+  isPanning,
   physicsEnabled,
   showPhysicsSettings,
   excludeSelfAppearances,
   hiddenEntityList,
   physicsSettings,
+  performanceStats,
   errorMessage,
   onQueryChange,
   onSearchFocus,
@@ -74,7 +78,12 @@ function ControlPanel({
   onResetPhysics,
 }: ControlPanelProps) {
   return (
-    <header className="absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl border border-slate-500/55 bg-slate-950/70 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)] sm:p-3.5">
+    <header
+      className={cn(
+        'absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl border border-slate-500/55 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:top-[18px] sm:w-[calc(100vw-1.75rem)] sm:p-3.5',
+        isPanning ? 'bg-slate-950/90 backdrop-blur-none' : 'bg-slate-950/70 backdrop-blur-xl',
+      )}
+    >
       <form className="flex gap-2.5" onSubmit={(event) => void onSearchSubmit(event)}>
         <input
           type="search"
@@ -253,9 +262,12 @@ function ControlPanel({
       <p className={cn(hintTextClass, 'mt-1')}>
         Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.
       </p>
+      <p className={cn(hintTextClass, 'mt-1 font-mono')}>
+        Perf {performanceStats.fps.toFixed(1)} fps | frame {performanceStats.frameMs.toFixed(2)}ms | physics {performanceStats.physicsMs.toFixed(2)}ms | {performanceStats.nodeCount} nodes | {performanceStats.edgeCount} edges
+      </p>
       {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
     </header>
   )
 }
 
-export default ControlPanel
+export default memo(ControlPanel)

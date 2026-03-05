@@ -20,6 +20,7 @@ import type {
   HiddenEntity,
   InputMode,
   NodeContextMenuState,
+  PerformanceStats,
   Point,
 } from '../uiTypes'
 import { clamp, isSelfAppearanceRole } from '../utils'
@@ -38,6 +39,15 @@ interface EnsureNodeResult {
   blocked: boolean
 }
 
+interface PerfAccumulator {
+  windowStart: number | null
+  frameCount: number
+  frameMsTotal: number
+  physicsMsTotal: number
+}
+
+const PERF_SAMPLE_WINDOW_MS = 750
+
 export function useGraphWorkspace() {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const panStateRef = useRef({
@@ -46,6 +56,21 @@ export function useGraphWorkspace() {
     lastX: 0,
     lastY: 0,
   })
+  const panDeltaRef = useRef({
+    x: 0,
+    y: 0,
+  })
+  const panFrameRef = useRef<number | null>(null)
+  const wheelDeltaRef = useRef({
+    zoomDelta: 0,
+    panX: 0,
+    panY: 0,
+    localX: 0,
+    localY: 0,
+  })
+  const wheelFrameRef = useRef<number | null>(null)
+  const wheelIdleTimerRef = useRef<number | null>(null)
+  const wheelActiveRef = useRef(false)
 
   const [nodes, setNodes] = useState<Record<string, GraphNode>>({})
   const [edges, setEdges] = useState<Record<string, GraphEdge>>({})
@@ -64,6 +89,14 @@ export function useGraphWorkspace() {
   const [excludeSelfAppearances, setExcludeSelfAppearances] = useState(true)
   const [hiddenEntities, setHiddenEntities] = useState<Record<string, HiddenEntity>>({})
   const [contextMenu, setContextMenu] = useState<NodeContextMenuState | null>(null)
+  const [isWheeling, setIsWheeling] = useState(false)
+  const [performanceStats, setPerformanceStats] = useState<PerformanceStats>({
+    fps: 0,
+    frameMs: 0,
+    physicsMs: 0,
+    nodeCount: 0,
+    edgeCount: 0,
+  })
 
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
@@ -72,6 +105,12 @@ export function useGraphWorkspace() {
   const hiddenKeysRef = useRef(new Set<string>())
   const searchRequestRef = useRef(0)
   const relatedCacheRef = useRef<Record<string, DiscoverEntity[]>>({})
+  const perfRef = useRef<PerfAccumulator>({
+    windowStart: null,
+    frameCount: 0,
+    frameMsTotal: 0,
+    physicsMsTotal: 0,
+  })
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -665,10 +704,42 @@ export function useGraphWorkspace() {
       lastX: event.clientX,
       lastY: event.clientY,
     }
+    panDeltaRef.current.x = 0
+    panDeltaRef.current.y = 0
 
     event.currentTarget.setPointerCapture(event.pointerId)
     setIsPanning(true)
   }, [])
+
+  const flushPanDelta = useCallback((): void => {
+    const pending = panDeltaRef.current
+
+    if (pending.x === 0 && pending.y === 0) {
+      return
+    }
+
+    const deltaX = pending.x
+    const deltaY = pending.y
+    pending.x = 0
+    pending.y = 0
+
+    setCamera((current) => ({
+      ...current,
+      x: current.x + deltaX,
+      y: current.y + deltaY,
+    }))
+  }, [])
+
+  const schedulePanFrame = useCallback((): void => {
+    if (panFrameRef.current !== null) {
+      return
+    }
+
+    panFrameRef.current = window.requestAnimationFrame(() => {
+      panFrameRef.current = null
+      flushPanDelta()
+    })
+  }, [flushPanDelta])
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>): void => {
     const state = panStateRef.current
@@ -683,12 +754,10 @@ export function useGraphWorkspace() {
     state.lastX = event.clientX
     state.lastY = event.clientY
 
-    setCamera((current) => ({
-      ...current,
-      x: current.x + deltaX,
-      y: current.y + deltaY,
-    }))
-  }, [])
+    panDeltaRef.current.x += deltaX
+    panDeltaRef.current.y += deltaY
+    schedulePanFrame()
+  }, [schedulePanFrame])
 
   const stopPanning = useCallback((event: ReactPointerEvent<HTMLDivElement>): void => {
     const state = panStateRef.current
@@ -700,12 +769,18 @@ export function useGraphWorkspace() {
     state.active = false
     state.pointerId = -1
 
+    if (panFrameRef.current !== null) {
+      window.cancelAnimationFrame(panFrameRef.current)
+      panFrameRef.current = null
+    }
+    flushPanDelta()
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
 
     setIsPanning(false)
-  }, [])
+  }, [flushPanDelta])
 
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>): void => {
@@ -721,36 +796,86 @@ export function useGraphWorkspace() {
       const localX = event.clientX - bounds.left
       const localY = event.clientY - bounds.top
 
-      const zoomToPointer = (zoomDelta: number): void => {
-        setCamera((current) => {
-          const zoomFactor = Math.exp(-zoomDelta * 0.002)
-          const nextScale = Math.max(0.3, Math.min(2.4, current.scale * zoomFactor))
-          const worldPointX = (localX - current.x) / current.scale
-          const worldPointY = (localY - current.y) / current.scale
+      const flushWheelDelta = (): void => {
+        const pending = wheelDeltaRef.current
+        const hasPan = pending.panX !== 0 || pending.panY !== 0
+        const hasZoom = pending.zoomDelta !== 0
 
-          return {
-            scale: nextScale,
-            x: localX - worldPointX * nextScale,
-            y: localY - worldPointY * nextScale,
+        if (!hasPan && !hasZoom) {
+          return
+        }
+
+        const panX = pending.panX
+        const panY = pending.panY
+        const zoomDelta = pending.zoomDelta
+        const anchorX = pending.localX
+        const anchorY = pending.localY
+
+        pending.panX = 0
+        pending.panY = 0
+        pending.zoomDelta = 0
+
+        setCamera((current) => {
+          let next = current
+
+          if (hasPan) {
+            next = {
+              ...next,
+              x: next.x - panX,
+              y: next.y - panY,
+            }
           }
+
+          if (hasZoom) {
+            const zoomFactor = Math.exp(-zoomDelta * 0.002)
+            const nextScale = Math.max(0.3, Math.min(2.4, next.scale * zoomFactor))
+            const worldPointX = (anchorX - next.x) / next.scale
+            const worldPointY = (anchorY - next.y) / next.scale
+
+            next = {
+              scale: nextScale,
+              x: anchorX - worldPointX * nextScale,
+              y: anchorY - worldPointY * nextScale,
+            }
+          }
+
+          return next
         })
       }
 
-      if (inputMode === 'trackpad') {
-        zoomToPointer(event.deltaY)
-        return
+      if (!wheelActiveRef.current) {
+        wheelActiveRef.current = true
+        setIsWheeling(true)
       }
 
-      if (event.ctrlKey || event.metaKey) {
-        zoomToPointer(event.deltaY)
-        return
+      if (wheelIdleTimerRef.current !== null) {
+        window.clearTimeout(wheelIdleTimerRef.current)
       }
 
-      setCamera((current) => ({
-        ...current,
-        x: current.x - event.deltaX,
-        y: current.y - event.deltaY,
-      }))
+      wheelIdleTimerRef.current = window.setTimeout(() => {
+        wheelActiveRef.current = false
+        wheelIdleTimerRef.current = null
+        setIsWheeling(false)
+      }, 140)
+
+      const pending = wheelDeltaRef.current
+      const zoomInput = inputMode === 'trackpad' || event.ctrlKey || event.metaKey
+
+      if (zoomInput) {
+        pending.zoomDelta += event.deltaY
+        pending.localX = localX
+        pending.localY = localY
+      } else {
+        pending.panX += event.deltaX
+        pending.panY += event.deltaY
+      }
+
+      if (wheelFrameRef.current === null) {
+        wheelFrameRef.current = window.requestAnimationFrame(() => {
+          wheelFrameRef.current = null
+          flushWheelDelta()
+        })
+      }
     },
     [inputMode],
   )
@@ -760,12 +885,15 @@ export function useGraphWorkspace() {
     let previousTimestamp: number | null = null
 
     const animate = (timestamp: number): void => {
+      const frameStart = performance.now()
       const activeNodes = nodesRef.current
       const keys = Object.keys(activeNodes)
+      let physicsMs = 0
 
       if (physicsEnabled && keys.length > 1) {
         const dt = previousTimestamp === null ? 1 : clamp((timestamp - previousTimestamp) / 16.667, 0.5, 2)
         const settings = physicsRef.current
+        const physicsStart = performance.now()
 
         const { hasMovement, nextNodes } = stepGraphPhysics({
           nodes: activeNodes,
@@ -773,11 +901,55 @@ export function useGraphWorkspace() {
           settings,
           dt,
         })
+        physicsMs = performance.now() - physicsStart
 
         if (hasMovement) {
           nodesRef.current = nextNodes
           setNodes(nextNodes)
         }
+      }
+
+      const frameMs = performance.now() - frameStart
+      const perf = perfRef.current
+
+      if (perf.windowStart === null) {
+        perf.windowStart = timestamp
+      }
+
+      perf.frameCount += 1
+      perf.frameMsTotal += frameMs
+      perf.physicsMsTotal += physicsMs
+
+      const elapsed = timestamp - perf.windowStart
+
+      if (elapsed >= PERF_SAMPLE_WINDOW_MS) {
+        const frameCount = Math.max(1, perf.frameCount)
+        const nextStats: PerformanceStats = {
+          fps: Number.parseFloat(((frameCount * 1000) / elapsed).toFixed(1)),
+          frameMs: Number.parseFloat((perf.frameMsTotal / frameCount).toFixed(2)),
+          physicsMs: Number.parseFloat((perf.physicsMsTotal / frameCount).toFixed(2)),
+          nodeCount: keys.length,
+          edgeCount: Object.keys(edgesRef.current).length,
+        }
+
+        setPerformanceStats((current) => {
+          if (
+            current.fps === nextStats.fps &&
+            current.frameMs === nextStats.frameMs &&
+            current.physicsMs === nextStats.physicsMs &&
+            current.nodeCount === nextStats.nodeCount &&
+            current.edgeCount === nextStats.edgeCount
+          ) {
+            return current
+          }
+
+          return nextStats
+        })
+
+        perf.windowStart = timestamp
+        perf.frameCount = 0
+        perf.frameMsTotal = 0
+        perf.physicsMsTotal = 0
       }
 
       previousTimestamp = timestamp
@@ -790,6 +962,22 @@ export function useGraphWorkspace() {
       window.cancelAnimationFrame(frameId)
     }
   }, [physicsEnabled])
+
+  useEffect(() => {
+    return () => {
+      if (panFrameRef.current !== null) {
+        window.cancelAnimationFrame(panFrameRef.current)
+      }
+
+      if (wheelFrameRef.current !== null) {
+        window.cancelAnimationFrame(wheelFrameRef.current)
+      }
+
+      if (wheelIdleTimerRef.current !== null) {
+        window.clearTimeout(wheelIdleTimerRef.current)
+      }
+    }
+  }, [])
 
   const resetGlobalPhysics = useCallback((): void => {
     setPhysicsSettings({ ...DEFAULT_PHYSICS })
@@ -937,11 +1125,13 @@ export function useGraphWorkspace() {
     selectedNodeKey,
     errorMessage,
     physicsEnabled,
+    isWheeling,
     inputMode,
     physicsSettings,
     showPhysicsSettings,
     excludeSelfAppearances,
     hiddenEntityList,
+    performanceStats,
     contextNode,
     contextMenuPosition,
     gridSize,

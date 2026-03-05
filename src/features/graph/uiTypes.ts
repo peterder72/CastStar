@@ -32,4 +32,12 @@ export interface NodeContextMenuState {
   y: number
 }
 
+export interface PerformanceStats {
+  fps: number
+  frameMs: number
+  physicsMs: number
+  nodeCount: number
+  edgeCount: number
+}
+
 export type InputMode = 'mouse' | 'trackpad'

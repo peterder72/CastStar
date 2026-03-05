@@ -22,11 +22,13 @@ function App() {
         searchResults={workspace.searchResults}
         searchOpen={workspace.searchOpen}
         inputMode={workspace.inputMode}
+        isPanning={workspace.isPanning || workspace.isWheeling}
         physicsEnabled={workspace.physicsEnabled}
         showPhysicsSettings={workspace.showPhysicsSettings}
         excludeSelfAppearances={workspace.excludeSelfAppearances}
         hiddenEntityList={workspace.hiddenEntityList}
         physicsSettings={workspace.physicsSettings}
+        performanceStats={workspace.performanceStats}
         errorMessage={workspace.errorMessage}
         onQueryChange={workspace.handleQueryChange}
         onSearchFocus={workspace.handleSearchFocus}

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { GraphNode } from '../../../types'
 import Button from '../../../components/ui/Button'
 
@@ -42,4 +43,4 @@ function NodeContextMenu({ node, position, onHideNode, onPruneLeaves, onDeleteNo
   )
 }
 
-export default NodeContextMenu
+export default memo(NodeContextMenu)

@@ -71,3 +71,13 @@ export default defineConfig([
   },
 ])
 ```
+
+## Performance Benchmark
+
+Run the physics micro-benchmark:
+
+```bash
+npm run bench:physics
+```
+
+It prints average / p95 step time for several graph sizes. Lower `avg` and `p95` means less chance of frame drops from physics.
