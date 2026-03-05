@@ -983,27 +983,16 @@ export function useGraphWorkspace() {
     setPhysicsSettings({ ...DEFAULT_PHYSICS })
   }, [])
 
-  const coolDownGraph = useCallback((): void => {
-    const activeNodes = nodesRef.current
-    const keys = Object.keys(activeNodes)
-
-    if (keys.length === 0) {
-      return
-    }
-
-    const nextNodes: Record<string, GraphNode> = {}
-
-    for (const key of keys) {
-      const node = activeNodes[key]
-      nextNodes[key] = {
-        ...node,
-        vx: 0,
-        vy: 0,
-      }
-    }
-
-    nodesRef.current = nextNodes
-    setNodes(nextNodes)
+  const clearAllGraph = useCallback((): void => {
+    nodesRef.current = {}
+    edgesRef.current = {}
+    relatedCacheRef.current = {}
+    setNodes({})
+    setEdges({})
+    setSelectedNodeKey(null)
+    setContextMenu(null)
+    setSearchOpen(false)
+    setErrorMessage(null)
   }, [])
 
   const unhideEntity = useCallback((key: string): void => {
@@ -1144,7 +1133,7 @@ export function useGraphWorkspace() {
     setInputMode,
     setPhysicsEnabled,
     setExcludeSelfAppearances,
-    coolDownGraph,
+    clearAllGraph,
     resetGlobalPhysics,
     clearHiddenEntities,
     unhideEntity,

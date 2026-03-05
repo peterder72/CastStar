@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import ControlPanel from './features/controls/components/ControlPanel'
 import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
@@ -5,6 +6,10 @@ import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
 
 function App() {
   const workspace = useGraphWorkspace()
+  const [searchOnlyMode, setSearchOnlyMode] = useState(false)
+  const toggleSearchOnlyMode = useCallback(() => {
+    setSearchOnlyMode((value) => !value)
+  }, [])
 
   return (
     <div
@@ -21,6 +26,7 @@ function App() {
         searchLoading={workspace.searchLoading}
         searchResults={workspace.searchResults}
         searchOpen={workspace.searchOpen}
+        searchOnlyMode={searchOnlyMode}
         inputMode={workspace.inputMode}
         isPanning={workspace.isPanning || workspace.isWheeling}
         physicsEnabled={workspace.physicsEnabled}
@@ -34,9 +40,10 @@ function App() {
         onSearchFocus={workspace.handleSearchFocus}
         onSearchSubmit={workspace.submitSearch}
         onChooseSearchResult={workspace.chooseSearchResult}
+        onToggleSearchOnlyMode={toggleSearchOnlyMode}
         onInputModeChange={workspace.setInputMode}
         onPhysicsEnabledChange={workspace.setPhysicsEnabled}
-        onCoolDownGraph={workspace.coolDownGraph}
+        onClearAllGraph={workspace.clearAllGraph}
         onTogglePhysicsSettings={workspace.togglePhysicsSettings}
         onExcludeSelfAppearancesChange={workspace.setExcludeSelfAppearances}
         onClearHiddenEntities={workspace.clearHiddenEntities}

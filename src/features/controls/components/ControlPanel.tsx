@@ -13,6 +13,7 @@ interface ControlPanelProps {
   searchLoading: boolean
   searchResults: DiscoverEntity[]
   searchOpen: boolean
+  searchOnlyMode: boolean
   inputMode: InputMode
   isPanning: boolean
   physicsEnabled: boolean
@@ -26,9 +27,10 @@ interface ControlPanelProps {
   onSearchFocus: () => void
   onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onChooseSearchResult: (entity: DiscoverEntity) => void
+  onToggleSearchOnlyMode: () => void
   onInputModeChange: (mode: InputMode) => void
   onPhysicsEnabledChange: (enabled: boolean) => void
-  onCoolDownGraph: () => void
+  onClearAllGraph: () => void
   onTogglePhysicsSettings: () => void
   onExcludeSelfAppearancesChange: (enabled: boolean) => void
   onClearHiddenEntities: () => void
@@ -54,6 +56,7 @@ function ControlPanel({
   searchLoading,
   searchResults,
   searchOpen,
+  searchOnlyMode,
   inputMode,
   isPanning,
   physicsEnabled,
@@ -67,9 +70,10 @@ function ControlPanel({
   onSearchFocus,
   onSearchSubmit,
   onChooseSearchResult,
+  onToggleSearchOnlyMode,
   onInputModeChange,
   onPhysicsEnabledChange,
-  onCoolDownGraph,
+  onClearAllGraph,
   onTogglePhysicsSettings,
   onExcludeSelfAppearancesChange,
   onClearHiddenEntities,
@@ -80,8 +84,12 @@ function ControlPanel({
   return (
     <header
       className={cn(
-        'absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl border border-slate-500/55 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:top-[18px] sm:w-[calc(100vw-1.75rem)] sm:p-3.5',
-        isPanning ? 'bg-slate-950/90 backdrop-blur-none' : 'bg-slate-950/70 backdrop-blur-xl',
+        'absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)]',
+        searchOnlyMode
+          ? 'border-0 bg-transparent p-0 shadow-none'
+          : isPanning
+            ? 'border border-slate-500/55 bg-slate-950/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:p-3.5'
+            : 'border border-slate-500/55 bg-slate-950/70 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-3.5',
       )}
     >
       <form className="flex gap-2.5" onSubmit={(event) => void onSearchSubmit(event)}>
@@ -100,9 +108,16 @@ function ControlPanel({
         >
           {searchLoading ? 'Searching...' : 'Add'}
         </button>
+        <button
+          type="button"
+          onClick={onToggleSearchOnlyMode}
+          className="min-w-[96px] rounded-xl border border-slate-500/70 bg-slate-900/85 px-3 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-cyan-300/55 hover:bg-slate-800/80"
+        >
+          {searchOnlyMode ? 'Show All' : 'Hide All'}
+        </button>
       </form>
 
-      {searchOpen && searchResults.length > 0 && (
+      {!searchOnlyMode && searchOpen && searchResults.length > 0 && (
         <ul
           className="mt-2.5 max-h-[min(42vh,360px)] list-none overflow-auto rounded-xl border border-slate-600/80 bg-slate-950/90 p-0"
           role="listbox"
@@ -132,140 +147,144 @@ function ControlPanel({
         </ul>
       )}
 
-      <div className="mt-2.5 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-500/70 lg:w-auto" role="group" aria-label="Input mode">
-          <button
-            type="button"
-            className={inputModeButtonClass(inputMode === 'mouse')}
-            onClick={() => onInputModeChange('mouse')}
-          >
-            Mouse Mode
-          </button>
-          <button
-            type="button"
-            className={inputModeButtonClass(inputMode === 'trackpad', true)}
-            onClick={() => onInputModeChange('trackpad')}
-          >
-            Trackpad Mode
-          </button>
-        </div>
+      {!searchOnlyMode && (
+        <>
+          <div className="mt-2.5 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-500/70 lg:w-auto" role="group" aria-label="Input mode">
+              <button
+                type="button"
+                className={inputModeButtonClass(inputMode === 'mouse')}
+                onClick={() => onInputModeChange('mouse')}
+              >
+                Mouse Mode
+              </button>
+              <button
+                type="button"
+                className={inputModeButtonClass(inputMode === 'trackpad', true)}
+                onClick={() => onInputModeChange('trackpad')}
+              >
+                Trackpad Mode
+              </button>
+            </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2.5 lg:justify-end">
-          <label className="inline-flex items-center gap-2 text-[0.82rem] text-slate-300">
-            <input
-              type="checkbox"
-              checked={physicsEnabled}
-              onChange={(event) => onPhysicsEnabledChange(event.target.checked)}
-              className="accent-cyan-300"
-            />
-            Live Physics
-          </label>
-          <Button onClick={onCoolDownGraph}>
-            Stop Motion
-          </Button>
-          <Button onClick={onTogglePhysicsSettings}>
-            {showPhysicsSettings ? 'Hide Physics' : 'Show Physics'}
-          </Button>
-        </div>
-      </div>
-
-      <PanelCard>
-        <div className="flex items-center justify-between gap-2.5">
-          <strong className="text-[0.86rem]">Global Filters</strong>
-        </div>
-
-        <label className="mt-2 flex items-start gap-2 text-[0.8rem] text-slate-300">
-          <input
-            type="checkbox"
-            checked={excludeSelfAppearances}
-            onChange={(event) => onExcludeSelfAppearancesChange(event.target.checked)}
-            className="mt-0.5 accent-cyan-300"
-          />
-          Exclude self-appearances ("Self", "Himself", "Herself", talk-show style entries)
-        </label>
-
-        <div className="mt-2.5">
-          <div className="flex items-center justify-between gap-2.5">
-            <small className="text-slate-300">Hidden Entities ({hiddenEntityList.length})</small>
-            {hiddenEntityList.length > 0 && (
-              <Button onClick={onClearHiddenEntities}>
-                Clear Hidden
+            <div className="flex flex-wrap items-center justify-between gap-2.5 lg:justify-end">
+              <label className="inline-flex items-center gap-2 text-[0.82rem] text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={physicsEnabled}
+                  onChange={(event) => onPhysicsEnabledChange(event.target.checked)}
+                  className="accent-cyan-300"
+                />
+                Live Physics
+              </label>
+              <Button tone="danger" className="ring-2 ring-rose-500/45" onClick={onClearAllGraph}>
+                Clear All
               </Button>
-            )}
+              <Button onClick={onTogglePhysicsSettings}>
+                {showPhysicsSettings ? 'Hide Physics' : 'Show Physics'}
+              </Button>
+            </div>
           </div>
 
-          {hiddenEntityList.length === 0 ? (
-            <small className="mt-2 block text-slate-400">No hidden entities.</small>
-          ) : (
-            <ul className="mt-2 grid max-h-[130px] list-none gap-1.5 overflow-auto p-0 max-[780px]:max-h-[110px]">
-              {hiddenEntityList.map((item) => (
-                <li
-                  key={item.key}
-                  className="flex items-center justify-between gap-2.5 rounded-lg border border-slate-700/90 bg-slate-900/75 px-2 py-1.5"
-                >
-                  <span className="truncate text-[0.78rem] text-slate-200">
-                    {item.title} <small className="text-slate-400">({item.kind.toUpperCase()})</small>
-                  </span>
-                  <Button onClick={() => onUnhideEntity(item.key)}>
-                    Unhide
+          <PanelCard>
+            <div className="flex items-center justify-between gap-2.5">
+              <strong className="text-[0.86rem]">Global Filters</strong>
+            </div>
+
+            <label className="mt-2 flex items-start gap-2 text-[0.8rem] text-slate-300">
+              <input
+                type="checkbox"
+                checked={excludeSelfAppearances}
+                onChange={(event) => onExcludeSelfAppearancesChange(event.target.checked)}
+                className="mt-0.5 accent-cyan-300"
+              />
+              Exclude self-appearances ("Self", "Himself", "Herself", talk-show style entries)
+            </label>
+
+            <div className="mt-2.5">
+              <div className="flex items-center justify-between gap-2.5">
+                <small className="text-slate-300">Hidden Entities ({hiddenEntityList.length})</small>
+                {hiddenEntityList.length > 0 && (
+                  <Button onClick={onClearHiddenEntities}>
+                    Clear Hidden
                   </Button>
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+
+              {hiddenEntityList.length === 0 ? (
+                <small className="mt-2 block text-slate-400">No hidden entities.</small>
+              ) : (
+                <ul className="mt-2 grid max-h-[130px] list-none gap-1.5 overflow-auto p-0 max-[780px]:max-h-[110px]">
+                  {hiddenEntityList.map((item) => (
+                    <li
+                      key={item.key}
+                      className="flex items-center justify-between gap-2.5 rounded-lg border border-slate-700/90 bg-slate-900/75 px-2 py-1.5"
+                    >
+                      <span className="truncate text-[0.78rem] text-slate-200">
+                        {item.title} <small className="text-slate-400">({item.kind.toUpperCase()})</small>
+                      </span>
+                      <Button onClick={() => onUnhideEntity(item.key)}>
+                        Unhide
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </PanelCard>
+
+          {showPhysicsSettings && (
+            <PanelCard>
+              <div className="flex items-baseline justify-between gap-2.5">
+                <strong className="truncate text-[0.86rem]">Global Physics</strong>
+                <small className="text-[0.74rem] text-slate-300">Applies to all nodes</small>
+              </div>
+
+              <div className="mt-2.5 grid gap-x-2.5 gap-y-2 md:grid-cols-2 max-[780px]:grid-cols-1">
+                {PHYSICS_CONTROLS.map((control) => {
+                  const currentValue = physicsSettings[control.key]
+
+                  return (
+                    <label key={control.key} className="flex flex-col gap-1">
+                      <span className="flex items-center justify-between gap-2 text-[0.73rem] text-slate-300">
+                        {control.label}
+                        <b className="font-mono text-[0.71rem] text-cyan-100">{currentValue.toFixed(control.precision)}</b>
+                      </span>
+                      <input
+                        type="range"
+                        min={control.min}
+                        max={control.max}
+                        step={control.step}
+                        value={currentValue}
+                        onChange={(event) => onPhysicsSettingChange(control.key, Number.parseFloat(event.target.value))}
+                        className="w-full accent-cyan-300"
+                      />
+                    </label>
+                  )
+                })}
+              </div>
+
+              <div className="mt-2.5 flex justify-end">
+                <Button onClick={onResetPhysics}>
+                  Reset Physics
+                </Button>
+              </div>
+            </PanelCard>
           )}
-        </div>
-      </PanelCard>
 
-      {showPhysicsSettings && (
-        <PanelCard>
-          <div className="flex items-baseline justify-between gap-2.5">
-            <strong className="truncate text-[0.86rem]">Global Physics</strong>
-            <small className="text-[0.74rem] text-slate-300">Applies to all nodes</small>
-          </div>
-
-          <div className="mt-2.5 grid gap-x-2.5 gap-y-2 md:grid-cols-2 max-[780px]:grid-cols-1">
-            {PHYSICS_CONTROLS.map((control) => {
-              const currentValue = physicsSettings[control.key]
-
-              return (
-                <label key={control.key} className="flex flex-col gap-1">
-                  <span className="flex items-center justify-between gap-2 text-[0.73rem] text-slate-300">
-                    {control.label}
-                    <b className="font-mono text-[0.71rem] text-cyan-100">{currentValue.toFixed(control.precision)}</b>
-                  </span>
-                  <input
-                    type="range"
-                    min={control.min}
-                    max={control.max}
-                    step={control.step}
-                    value={currentValue}
-                    onChange={(event) => onPhysicsSettingChange(control.key, Number.parseFloat(event.target.value))}
-                    className="w-full accent-cyan-300"
-                  />
-                </label>
-              )
-            })}
-          </div>
-
-          <div className="mt-2.5 flex justify-end">
-            <Button onClick={onResetPhysics}>
-              Reset Physics
-            </Button>
-          </div>
-        </PanelCard>
+          <p className={cn(hintTextClass, 'mt-2.5')}>
+            Click a bubble to load 10 connected results; click again for the next 10.
+          </p>
+          <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete actions.</p>
+          <p className={cn(hintTextClass, 'mt-1')}>
+            Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.
+          </p>
+          <p className={cn(hintTextClass, 'mt-1 font-mono')}>
+            Perf {performanceStats.fps.toFixed(1)} fps | frame {performanceStats.frameMs.toFixed(2)}ms | physics {performanceStats.physicsMs.toFixed(2)}ms | {performanceStats.nodeCount} nodes | {performanceStats.edgeCount} edges
+          </p>
+          {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
+        </>
       )}
-
-      <p className={cn(hintTextClass, 'mt-2.5')}>
-        Click a bubble to load 10 connected results; click again for the next 10.
-      </p>
-      <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete actions.</p>
-      <p className={cn(hintTextClass, 'mt-1')}>
-        Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.
-      </p>
-      <p className={cn(hintTextClass, 'mt-1 font-mono')}>
-        Perf {performanceStats.fps.toFixed(1)} fps | frame {performanceStats.frameMs.toFixed(2)}ms | physics {performanceStats.physicsMs.toFixed(2)}ms | {performanceStats.nodeCount} nodes | {performanceStats.edgeCount} edges
-      </p>
-      {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
     </header>
   )
 }
