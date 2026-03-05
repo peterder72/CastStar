@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useWebHaptics } from 'web-haptics/react'
 import ControlPanel from './features/controls/components/ControlPanel'
 import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
@@ -7,68 +8,28 @@ import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
 import { isDemoModeEnabled, isTokenConfigurable } from './tmdb'
 import TokenSettingsModal from './components/TokenSettingsModal'
 
-interface HapticsController {
-  trigger: (
-    input?:
-      | string
-      | number
-      | number[]
-      | Array<{ duration: number; delay?: number; intensity?: number }>
-      | { pattern: Array<{ duration: number; delay?: number; intensity?: number }> },
-  ) => Promise<void>
-  destroy: () => void
-}
-
 function App() {
   const [searchOnlyMode, setSearchOnlyMode] = useState(false)
   const [tokenModalKey, setTokenModalKey] = useState(0)
   const [tokenModalOpen, setTokenModalOpen] = useState(false)
-  const mobileHapticsRef = useRef<HapticsController | null>(null)
+  const { trigger: triggerHaptic } = useWebHaptics()
 
   const triggerShortTapHaptic = useCallback(() => {
-    navigator.vibrate?.(20)
-    void mobileHapticsRef.current?.trigger(20)
-  }, [])
+    void triggerHaptic('selection')
+  }, [triggerHaptic])
 
   const triggerContextMenuOpenHaptic = useCallback(() => {
-    navigator.vibrate?.([16, 90, 30])
-    void mobileHapticsRef.current?.trigger([
+    void triggerHaptic([
       { duration: 16, intensity: 0.35 },
       { delay: 90, duration: 30, intensity: 1 },
     ])
-  }, [])
+  }, [triggerHaptic])
 
   const workspace = useGraphWorkspace({
     onNodeClick: triggerShortTapHaptic,
     onSearchEntityAdded: triggerShortTapHaptic,
     onNodeContextMenuOpen: triggerContextMenuOpenHaptic,
   })
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    let cancelled = false
-
-    void import('web-haptics')
-      .then(({ WebHaptics }) => {
-        if (cancelled) {
-          return
-        }
-
-        mobileHapticsRef.current = new WebHaptics({
-          showSwitch: false,
-        }) as HapticsController
-      })
-      .catch(() => {})
-
-    return () => {
-      cancelled = true
-      mobileHapticsRef.current?.destroy()
-      mobileHapticsRef.current = null
-    }
-  }, [])
 
   const toggleSearchOnlyMode = useCallback(() => {
     setSearchOnlyMode((value) => !value)
