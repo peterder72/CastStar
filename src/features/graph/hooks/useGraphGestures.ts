@@ -158,6 +158,10 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
       const isNodeTarget = Boolean(target.closest('[data-node]'))
 
       if (event.pointerType === 'touch') {
+        if (isNodeTarget) {
+          return
+        }
+
         const point = {
           x: event.clientX,
           y: event.clientY,
@@ -202,10 +206,6 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
 
         pinchStateRef.current.active = false
         pinchStateRef.current.distance = 0
-
-        if (isNodeTarget) {
-          return
-        }
 
         event.currentTarget.setPointerCapture(event.pointerId)
 
