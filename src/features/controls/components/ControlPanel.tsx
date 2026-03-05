@@ -22,6 +22,7 @@ interface ControlPanelProps {
   hiddenEntityList: HiddenEntity[]
   physicsSettings: NodePhysics
   errorMessage: string | null
+  tokenConfigurable: boolean
   onQueryChange: (value: string) => void
   onSearchFocus: () => void
   onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
@@ -36,6 +37,7 @@ interface ControlPanelProps {
   onUnhideEntity: (key: string) => void
   onPhysicsSettingChange: (key: keyof NodePhysics, value: number) => void
   onResetPhysics: () => void
+  onOpenTokenSettings: () => void
 }
 
 const hintTextClass = 'px-0.5 text-[0.78rem] leading-snug text-slate-300 sm:text-[0.82rem]'
@@ -64,6 +66,7 @@ function ControlPanel({
   hiddenEntityList,
   physicsSettings,
   errorMessage,
+  tokenConfigurable,
   onQueryChange,
   onSearchFocus,
   onSearchSubmit,
@@ -78,6 +81,7 @@ function ControlPanel({
   onUnhideEntity,
   onPhysicsSettingChange,
   onResetPhysics,
+  onOpenTokenSettings,
 }: ControlPanelProps) {
   return (
     <header
@@ -179,6 +183,12 @@ function ControlPanel({
               </label>
               <Button tone="danger" className="ring-2 ring-rose-500/45" onClick={onClearAllGraph}>
                 Clear All
+              </Button>
+              <Button
+                disabled={!tokenConfigurable}
+                onClick={onOpenTokenSettings}
+              >
+                Set Token
               </Button>
               <Button onClick={onTogglePhysicsSettings}>
                 {showPhysicsSettings ? 'Hide Physics' : 'Show Physics'}

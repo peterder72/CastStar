@@ -5,18 +5,63 @@ const TMDB_IMAGE_URL = 'https://image.tmdb.org/t/p/w185'
 const DEMO_CHILD_COUNT = 10
 const DEMO_KIND_SEQUENCE: NodeKind[] = ['person', 'movie', 'tv']
 
-const RAW_SECRET =
+const LOCAL_STORAGE_TOKEN_KEY = 'caststar_tmdb_token'
+
+function parseBooleanEnvValue(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on'
+}
+
+const BUILD_SECRET = (
   import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN ??
   import.meta.env.VITE_TMDB_API_KEY ??
   (typeof __TMDB_API_KEY__ === 'string' ? __TMDB_API_KEY__ : '')
+).trim()
 
-const TMDB_SECRET = RAW_SECRET.trim()
-const USE_BEARER_AUTH = TMDB_SECRET.includes('.') && TMDB_SECRET.length > 40
 const RAW_DEMO_FLAG =
   import.meta.env.VITE_CASTSTAR_DEMO ??
   (typeof __CASTSTAR_DEMO__ === 'string' ? __CASTSTAR_DEMO__ : '')
-const DEMO_MODE = parseBooleanEnvValue(RAW_DEMO_FLAG) || !TMDB_SECRET
+const DEMO_EXPLICITLY_REQUESTED = parseBooleanEnvValue(RAW_DEMO_FLAG)
+
+function readStoredToken(): string {
+  if (typeof localStorage === 'undefined') {
+    return ''
+  }
+
+  try {
+    return (localStorage.getItem(LOCAL_STORAGE_TOKEN_KEY) ?? '').trim()
+  } catch {
+    return ''
+  }
+}
+
+const STORED_TOKEN = readStoredToken()
+const TMDB_SECRET = BUILD_SECRET || STORED_TOKEN
+const USE_BEARER_AUTH = TMDB_SECRET.includes('.') && TMDB_SECRET.length > 40
+const DEMO_MODE = DEMO_EXPLICITLY_REQUESTED || !TMDB_SECRET
 export const isDemoModeEnabled = DEMO_MODE
+
+export const isTokenConfigurable = !BUILD_SECRET && !DEMO_EXPLICITLY_REQUESTED
+
+export function getUserToken(): string {
+  return STORED_TOKEN
+}
+
+export function setUserToken(token: string): void {
+  if (typeof localStorage === 'undefined') {
+    return
+  }
+
+  const trimmed = token.trim()
+
+  if (trimmed) {
+    localStorage.setItem(LOCAL_STORAGE_TOKEN_KEY, trimmed)
+  } else {
+    localStorage.removeItem(LOCAL_STORAGE_TOKEN_KEY)
+  }
+
+  window.location.reload()
+}
 
 interface MultiSearchResponse {
   results: MultiSearchItem[]
@@ -71,10 +116,6 @@ interface RankedEntity {
   voteCount: number
 }
 
-function parseBooleanEnvValue(value: string): boolean {
-  const normalized = value.trim().toLowerCase()
-  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on'
-}
 
 function demoHash(value: string): number {
   let hash = 2166136261
