@@ -23,10 +23,12 @@ function App() {
   const mobileHapticsRef = useRef<HapticsController | null>(null)
 
   const triggerShortTapHaptic = useCallback(() => {
+    navigator.vibrate?.(20)
     void mobileHapticsRef.current?.trigger(20)
   }, [])
 
   const triggerContextMenuOpenHaptic = useCallback(() => {
+    navigator.vibrate?.([16, 90, 30])
     void mobileHapticsRef.current?.trigger([
       { duration: 16, intensity: 0.35 },
       { delay: 90, duration: 30, intensity: 1 },
