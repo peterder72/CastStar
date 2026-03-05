@@ -16,8 +16,8 @@ const toneClasses: Record<ButtonTone, string> = {
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-2.5 py-1.5 text-[0.76rem]',
-  md: 'px-3 py-1.5 text-xs font-semibold',
+  sm: 'min-h-9 px-3 py-1.5 text-[0.76rem]',
+  md: 'min-h-10 px-3 py-1.5 text-xs font-semibold',
 }
 
 function Button({ tone = 'default', size = 'md', className, type = 'button', ...props }: ButtonProps) {

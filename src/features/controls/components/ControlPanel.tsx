@@ -6,7 +6,7 @@ import { cn } from '../../../components/ui/cn'
 import type { DiscoverEntity, NodePhysics } from '../../../types'
 import { entityKey } from '../../../types'
 import { PHYSICS_CONTROLS } from '../../graph/constants'
-import type { HiddenEntity, InputMode, PerformanceStats } from '../../graph/uiTypes'
+import type { HiddenEntity, InputMode } from '../../graph/uiTypes'
 
 interface ControlPanelProps {
   query: string
@@ -21,7 +21,6 @@ interface ControlPanelProps {
   excludeSelfAppearances: boolean
   hiddenEntityList: HiddenEntity[]
   physicsSettings: NodePhysics
-  performanceStats: PerformanceStats
   errorMessage: string | null
   onQueryChange: (value: string) => void
   onSearchFocus: () => void
@@ -39,7 +38,7 @@ interface ControlPanelProps {
   onResetPhysics: () => void
 }
 
-const hintTextClass = 'px-0.5 text-[0.82rem] text-slate-300'
+const hintTextClass = 'px-0.5 text-[0.78rem] leading-snug text-slate-300 sm:text-[0.82rem]'
 
 function inputModeButtonClass(active: boolean, withLeftBorder = false): string {
   return cn(
@@ -64,7 +63,6 @@ function ControlPanel({
   excludeSelfAppearances,
   hiddenEntityList,
   physicsSettings,
-  performanceStats,
   errorMessage,
   onQueryChange,
   onSearchFocus,
@@ -84,15 +82,15 @@ function ControlPanel({
   return (
     <header
       className={cn(
-        'absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)]',
+        'absolute left-1/2 top-2 z-50 w-[calc(100vw-0.75rem)] max-w-[760px] -translate-x-1/2 rounded-2xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)]',
         searchOnlyMode
           ? 'border-0 bg-transparent p-0 shadow-none'
           : isPanning
-            ? 'border border-slate-500/55 bg-slate-950/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:p-3.5'
-            : 'border border-slate-500/55 bg-slate-950/70 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-3.5',
+            ? 'max-h-[calc(100dvh-0.75rem)] overflow-y-auto border border-slate-500/55 bg-slate-950/90 p-2.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:max-h-[unset] sm:overflow-visible sm:p-3.5'
+            : 'max-h-[calc(100dvh-0.75rem)] overflow-y-auto border border-slate-500/55 bg-slate-950/70 p-2.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:max-h-[unset] sm:overflow-visible sm:p-3.5',
       )}
     >
-      <form className="flex gap-2.5" onSubmit={(event) => void onSearchSubmit(event)}>
+      <form className="flex flex-col gap-2 sm:gap-2.5 sm:flex-row" onSubmit={(event) => void onSearchSubmit(event)}>
         <input
           type="search"
           value={query}
@@ -101,32 +99,34 @@ function ControlPanel({
           onChange={(event) => onQueryChange(event.target.value)}
           className="w-full rounded-xl border border-slate-500/70 bg-slate-900/85 px-3.5 py-2.5 text-[0.95rem] text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20"
         />
-        <button
-          type="submit"
-          disabled={searchLoading || query.trim().length < 2}
-          className="min-w-[84px] rounded-xl border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-3.5 py-2.5 text-sm font-bold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {searchLoading ? 'Searching...' : 'Add'}
-        </button>
-        <button
-          type="button"
-          onClick={onToggleSearchOnlyMode}
-          className="min-w-[96px] rounded-xl border border-slate-500/70 bg-slate-900/85 px-3 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-cyan-300/55 hover:bg-slate-800/80"
-        >
-          {searchOnlyMode ? 'Show All' : 'Hide All'}
-        </button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2.5">
+          <button
+            type="submit"
+            disabled={searchLoading || query.trim().length < 2}
+            className="min-h-11 min-w-[84px] rounded-xl border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-3.5 py-2.5 text-sm font-bold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {searchLoading ? 'Searching...' : 'Add'}
+          </button>
+          <button
+            type="button"
+            onClick={onToggleSearchOnlyMode}
+            className="min-h-11 min-w-[96px] rounded-xl border border-slate-500/70 bg-slate-900/85 px-3 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-cyan-300/55 hover:bg-slate-800/80"
+          >
+            {searchOnlyMode ? 'Show All' : 'Hide All'}
+          </button>
+        </div>
       </form>
 
-      {!searchOnlyMode && searchOpen && searchResults.length > 0 && (
+      {searchOpen && searchResults.length > 0 && (
         <ul
-          className="mt-2.5 max-h-[min(42vh,360px)] list-none overflow-auto rounded-xl border border-slate-600/80 bg-slate-950/90 p-0"
+          className="mt-2.5 max-h-[min(36dvh,320px)] list-none overflow-auto rounded-xl border border-slate-600/80 bg-slate-950/90 p-0 sm:max-h-[min(42vh,360px)]"
           role="listbox"
         >
           {searchResults.map((result) => (
             <li key={entityKey(result)}>
               <button
                 type="button"
-                className="flex w-full items-center gap-2.5 border-b border-slate-700/80 bg-transparent px-2.5 py-2 text-left text-inherit transition hover:bg-cyan-300/10 last:border-b-0"
+                className="flex w-full items-center gap-2.5 border-b border-slate-700/80 bg-transparent px-2.5 py-2.5 text-left text-inherit transition hover:bg-cyan-300/10 last:border-b-0"
                 onClick={() => onChooseSearchResult(result)}
               >
                 <EntityAvatar
@@ -150,7 +150,7 @@ function ControlPanel({
       {!searchOnlyMode && (
         <>
           <div className="mt-2.5 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-500/70 lg:w-auto" role="group" aria-label="Input mode">
+            <div className="grid w-full grid-cols-2 overflow-hidden rounded-lg border border-slate-500/70 lg:inline-flex lg:w-auto" role="group" aria-label="Input mode">
               <button
                 type="button"
                 className={inputModeButtonClass(inputMode === 'mouse')}
@@ -167,7 +167,7 @@ function ControlPanel({
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2.5 lg:justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-2 lg:justify-end">
               <label className="inline-flex items-center gap-2 text-[0.82rem] text-slate-300">
                 <input
                   type="checkbox"
@@ -214,7 +214,7 @@ function ControlPanel({
               {hiddenEntityList.length === 0 ? (
                 <small className="mt-2 block text-slate-400">No hidden entities.</small>
               ) : (
-                <ul className="mt-2 grid max-h-[130px] list-none gap-1.5 overflow-auto p-0 max-[780px]:max-h-[110px]">
+                <ul className="mt-2 grid max-h-[130px] list-none gap-1.5 overflow-auto p-0 max-[780px]:max-h-[104px]">
                   {hiddenEntityList.map((item) => (
                     <li
                       key={item.key}
@@ -277,10 +277,7 @@ function ControlPanel({
           </p>
           <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete actions.</p>
           <p className={cn(hintTextClass, 'mt-1')}>
-            Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.
-          </p>
-          <p className={cn(hintTextClass, 'mt-1 font-mono')}>
-            Perf {performanceStats.fps.toFixed(1)} fps | frame {performanceStats.frameMs.toFixed(2)}ms | physics {performanceStats.physicsMs.toFixed(2)}ms | {performanceStats.nodeCount} nodes | {performanceStats.edgeCount} edges
+            Touch: one finger pans and two fingers pinch-zoom. Trackpad mode: scroll to zoom, drag to pan.
           </p>
           {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
         </>

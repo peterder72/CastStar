@@ -1,19 +1,65 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ControlPanel from './features/controls/components/ControlPanel'
 import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
+import PerformanceHud from './features/graph/components/PerformanceHud'
 import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
+
+interface HapticsController {
+  trigger: (input?: string) => Promise<void>
+  destroy: () => void
+}
 
 function App() {
   const workspace = useGraphWorkspace()
   const [searchOnlyMode, setSearchOnlyMode] = useState(false)
-  const toggleSearchOnlyMode = useCallback(() => {
-    setSearchOnlyMode((value) => !value)
+  const mobileHapticsRef = useRef<HapticsController | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    let cancelled = false
+
+    void import('web-haptics')
+      .then(({ WebHaptics }) => {
+        if (cancelled) {
+          return
+        }
+
+        mobileHapticsRef.current = new WebHaptics({
+          showSwitch: false,
+        }) as HapticsController
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      mobileHapticsRef.current?.destroy()
+      mobileHapticsRef.current = null
+    }
   }, [])
+
+  const triggerToolbarOpenHaptic = useCallback(() => {
+    void mobileHapticsRef.current?.trigger('nudge')
+  }, [])
+
+  const toggleSearchOnlyMode = useCallback(() => {
+    setSearchOnlyMode((value) => {
+      const nextValue = !value
+
+      if (value && !nextValue) {
+        triggerToolbarOpenHaptic()
+      }
+
+      return nextValue
+    })
+  }, [triggerToolbarOpenHaptic])
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden overscroll-none bg-[radial-gradient(circle_at_15%_15%,#1f4e73_0%,#101d2c_44%,#070b11_100%)] text-slate-100"
+      className="relative h-full w-full select-none overflow-hidden overscroll-none bg-[radial-gradient(circle_at_15%_15%,#1f4e73_0%,#101d2c_44%,#070b11_100%)] text-slate-100"
       onClick={workspace.dismissContextMenu}
     >
       <div className="pointer-events-none absolute inset-0">
@@ -34,7 +80,6 @@ function App() {
         excludeSelfAppearances={workspace.excludeSelfAppearances}
         hiddenEntityList={workspace.hiddenEntityList}
         physicsSettings={workspace.physicsSettings}
-        performanceStats={workspace.performanceStats}
         errorMessage={workspace.errorMessage}
         onQueryChange={workspace.handleQueryChange}
         onSearchFocus={workspace.handleSearchFocus}
@@ -81,6 +126,8 @@ function App() {
         onPruneLeaves={workspace.pruneNodeLeaves}
         onDeleteNode={workspace.deleteNodeFromBoard}
       />
+
+      <PerformanceHud stats={workspace.performanceStats} />
     </div>
   )
 }
