@@ -1,4 +1,3 @@
-import './App.css'
 import ControlPanel from './features/controls/components/ControlPanel'
 import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
@@ -8,7 +7,15 @@ function App() {
   const workspace = useGraphWorkspace()
 
   return (
-    <div className="app-shell" onClick={workspace.dismissContextMenu}>
+    <div
+      className="relative h-full w-full overflow-hidden overscroll-none bg-[radial-gradient(circle_at_15%_15%,#1f4e73_0%,#101d2c_44%,#070b11_100%)] text-slate-100"
+      onClick={workspace.dismissContextMenu}
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-24 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="absolute bottom-[-10rem] right-[-6rem] h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
+      </div>
+
       <ControlPanel
         query={workspace.query}
         searchLoading={workspace.searchLoading}

@@ -1,5 +1,8 @@
 import type { FormEvent } from 'react'
 import EntityAvatar from '../../../components/EntityAvatar'
+import Button from '../../../components/ui/Button'
+import PanelCard from '../../../components/ui/PanelCard'
+import { cn } from '../../../components/ui/cn'
 import type { DiscoverEntity, NodePhysics } from '../../../types'
 import { entityKey } from '../../../types'
 import { PHYSICS_CONTROLS } from '../../graph/constants'
@@ -32,6 +35,18 @@ interface ControlPanelProps {
   onResetPhysics: () => void
 }
 
+const hintTextClass = 'px-0.5 text-[0.82rem] text-slate-300'
+
+function inputModeButtonClass(active: boolean, withLeftBorder = false): string {
+  return cn(
+    'flex-1 px-3 py-1.5 text-xs transition',
+    withLeftBorder && 'border-l border-slate-500/70',
+    active
+      ? 'bg-gradient-to-br from-cyan-300 to-sky-500 font-semibold text-slate-950'
+      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800/80',
+  )
+}
+
 function ControlPanel({
   query,
   searchLoading,
@@ -59,29 +74,45 @@ function ControlPanel({
   onResetPhysics,
 }: ControlPanelProps) {
   return (
-    <header className="search-panel">
-      <form className="search-form" onSubmit={(event) => void onSearchSubmit(event)}>
+    <header className="absolute left-1/2 top-3 z-50 w-[calc(100vw-1rem)] max-w-[760px] -translate-x-1/2 rounded-2xl border border-slate-500/55 bg-slate-950/70 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)] sm:p-3.5">
+      <form className="flex gap-2.5" onSubmit={(event) => void onSearchSubmit(event)}>
         <input
           type="search"
           value={query}
           placeholder="Search actor, movie, or TV series"
           onFocus={onSearchFocus}
           onChange={(event) => onQueryChange(event.target.value)}
+          className="w-full rounded-xl border border-slate-500/70 bg-slate-900/85 px-3.5 py-2.5 text-[0.95rem] text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20"
         />
-        <button type="submit" disabled={searchLoading || query.trim().length < 2}>
+        <button
+          type="submit"
+          disabled={searchLoading || query.trim().length < 2}
+          className="min-w-[84px] rounded-xl border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-3.5 py-2.5 text-sm font-bold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           {searchLoading ? 'Searching...' : 'Add'}
         </button>
       </form>
 
       {searchOpen && searchResults.length > 0 && (
-        <ul className="search-results" role="listbox">
+        <ul
+          className="mt-2.5 max-h-[min(42vh,360px)] list-none overflow-auto rounded-xl border border-slate-600/80 bg-slate-950/90 p-0"
+          role="listbox"
+        >
           {searchResults.map((result) => (
             <li key={entityKey(result)}>
-              <button type="button" className="result-row" onClick={() => onChooseSearchResult(result)}>
-                <EntityAvatar imagePath={result.imagePath} title={result.title} className="result-thumb" />
-                <span className="result-copy">
-                  <span>{result.title}</span>
-                  <small>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2.5 border-b border-slate-700/80 bg-transparent px-2.5 py-2 text-left text-inherit transition hover:bg-cyan-300/10 last:border-b-0"
+                onClick={() => onChooseSearchResult(result)}
+              >
+                <EntityAvatar
+                  imagePath={result.imagePath}
+                  title={result.title}
+                  className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-500/90 bg-slate-700/70 text-[0.72rem] font-bold"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{result.title}</span>
+                  <small className="block truncate text-[0.73rem] text-slate-300">
                     {result.kind.toUpperCase()}
                     {result.subtitle ? ` • ${result.subtitle}` : ''}
                   </small>
@@ -92,101 +123,106 @@ function ControlPanel({
         </ul>
       )}
 
-      <div className="control-toolbar">
-        <div className="input-mode-switch" role="group" aria-label="Input mode">
+      <div className="mt-2.5 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-500/70 lg:w-auto" role="group" aria-label="Input mode">
           <button
             type="button"
-            className={inputMode === 'mouse' ? 'is-active' : ''}
+            className={inputModeButtonClass(inputMode === 'mouse')}
             onClick={() => onInputModeChange('mouse')}
           >
             Mouse Mode
           </button>
           <button
             type="button"
-            className={inputMode === 'trackpad' ? 'is-active' : ''}
+            className={inputModeButtonClass(inputMode === 'trackpad', true)}
             onClick={() => onInputModeChange('trackpad')}
           >
             Trackpad Mode
           </button>
         </div>
 
-        <div className="physics-toolbar">
-          <label>
+        <div className="flex flex-wrap items-center justify-between gap-2.5 lg:justify-end">
+          <label className="inline-flex items-center gap-2 text-[0.82rem] text-slate-300">
             <input
               type="checkbox"
               checked={physicsEnabled}
               onChange={(event) => onPhysicsEnabledChange(event.target.checked)}
+              className="accent-cyan-300"
             />
             Live Physics
           </label>
-          <button type="button" onClick={onCoolDownGraph}>
+          <Button onClick={onCoolDownGraph}>
             Stop Motion
-          </button>
-          <button type="button" onClick={onTogglePhysicsSettings}>
+          </Button>
+          <Button onClick={onTogglePhysicsSettings}>
             {showPhysicsSettings ? 'Hide Physics' : 'Show Physics'}
-          </button>
+          </Button>
         </div>
       </div>
 
-      <section className="filter-panel">
-        <div className="filter-panel-head">
-          <strong>Global Filters</strong>
+      <PanelCard>
+        <div className="flex items-center justify-between gap-2.5">
+          <strong className="text-[0.86rem]">Global Filters</strong>
         </div>
 
-        <label className="filter-toggle">
+        <label className="mt-2 flex items-start gap-2 text-[0.8rem] text-slate-300">
           <input
             type="checkbox"
             checked={excludeSelfAppearances}
             onChange={(event) => onExcludeSelfAppearancesChange(event.target.checked)}
+            className="mt-0.5 accent-cyan-300"
           />
           Exclude self-appearances ("Self", "Himself", "Herself", talk-show style entries)
         </label>
 
-        <div className="hidden-entities">
-          <div className="hidden-entities-head">
-            <small>Hidden Entities ({hiddenEntityList.length})</small>
+        <div className="mt-2.5">
+          <div className="flex items-center justify-between gap-2.5">
+            <small className="text-slate-300">Hidden Entities ({hiddenEntityList.length})</small>
             {hiddenEntityList.length > 0 && (
-              <button type="button" onClick={onClearHiddenEntities}>
+              <Button onClick={onClearHiddenEntities}>
                 Clear Hidden
-              </button>
+              </Button>
             )}
           </div>
 
           {hiddenEntityList.length === 0 ? (
-            <small className="hidden-empty">No hidden entities.</small>
+            <small className="mt-2 block text-slate-400">No hidden entities.</small>
           ) : (
-            <ul className="hidden-entities-list">
+            <ul className="mt-2 grid max-h-[130px] list-none gap-1.5 overflow-auto p-0 max-[780px]:max-h-[110px]">
               {hiddenEntityList.map((item) => (
-                <li key={item.key}>
-                  <span>
-                    {item.title} <small>({item.kind.toUpperCase()})</small>
+                <li
+                  key={item.key}
+                  className="flex items-center justify-between gap-2.5 rounded-lg border border-slate-700/90 bg-slate-900/75 px-2 py-1.5"
+                >
+                  <span className="truncate text-[0.78rem] text-slate-200">
+                    {item.title} <small className="text-slate-400">({item.kind.toUpperCase()})</small>
                   </span>
-                  <button type="button" onClick={() => onUnhideEntity(item.key)}>
+                  <Button onClick={() => onUnhideEntity(item.key)}>
                     Unhide
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
           )}
         </div>
-      </section>
+      </PanelCard>
 
       {showPhysicsSettings && (
-        <section className="physics-panel">
-          <div className="physics-panel-head">
-            <strong>Global Physics</strong>
-            <small>Applies to all nodes</small>
+        <PanelCard>
+          <div className="flex items-baseline justify-between gap-2.5">
+            <strong className="truncate text-[0.86rem]">Global Physics</strong>
+            <small className="text-[0.74rem] text-slate-300">Applies to all nodes</small>
           </div>
 
-          <div className="physics-controls">
+          <div className="mt-2.5 grid gap-x-2.5 gap-y-2 md:grid-cols-2 max-[780px]:grid-cols-1">
             {PHYSICS_CONTROLS.map((control) => {
               const currentValue = physicsSettings[control.key]
 
               return (
-                <label key={control.key} className="physics-control">
-                  <span>
+                <label key={control.key} className="flex flex-col gap-1">
+                  <span className="flex items-center justify-between gap-2 text-[0.73rem] text-slate-300">
                     {control.label}
-                    <b>{currentValue.toFixed(control.precision)}</b>
+                    <b className="font-mono text-[0.71rem] text-cyan-100">{currentValue.toFixed(control.precision)}</b>
                   </span>
                   <input
                     type="range"
@@ -195,24 +231,29 @@ function ControlPanel({
                     step={control.step}
                     value={currentValue}
                     onChange={(event) => onPhysicsSettingChange(control.key, Number.parseFloat(event.target.value))}
+                    className="w-full accent-cyan-300"
                   />
                 </label>
               )
             })}
           </div>
 
-          <div className="physics-panel-actions">
-            <button type="button" onClick={onResetPhysics}>
+          <div className="mt-2.5 flex justify-end">
+            <Button onClick={onResetPhysics}>
               Reset Physics
-            </button>
+            </Button>
           </div>
-        </section>
+        </PanelCard>
       )}
 
-      <p className="hint-text">Click a bubble to load 10 connected results; click again for the next 10.</p>
-      <p className="hint-text">Right-click a bubble for hide/prune/delete actions.</p>
-      <p className="hint-text">Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.</p>
-      {errorMessage && <p className="error-text">{errorMessage}</p>}
+      <p className={cn(hintTextClass, 'mt-2.5')}>
+        Click a bubble to load 10 connected results; click again for the next 10.
+      </p>
+      <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete actions.</p>
+      <p className={cn(hintTextClass, 'mt-1')}>
+        Trackpad mode: scroll to zoom, drag to pan. Mouse mode keeps the original controls.
+      </p>
+      {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
     </header>
   )
 }

@@ -1,38 +1,35 @@
-:root {
-  font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
-  line-height: 1.35;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@import 'tailwindcss';
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
 
-html,
-body,
-#root {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-}
+  html,
+  body,
+  #root {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+  }
 
-html,
-body {
-  overflow: hidden;
-  overscroll-behavior: none;
-  background: #070b11;
-}
+  body {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #070b11;
+    font-family: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
+    line-height: 1.35;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-body {
-  position: fixed;
-  inset: 0;
-}
-
-button,
-input {
-  font: inherit;
+  button,
+  input {
+    font: inherit;
+  }
 }

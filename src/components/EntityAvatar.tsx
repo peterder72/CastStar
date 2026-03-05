@@ -12,7 +12,7 @@ function EntityAvatar({ imagePath, title, className, alt = '' }: EntityAvatarPro
 
   return (
     <span className={className} aria-hidden={alt === ''}>
-      {imageUrl ? <img src={imageUrl} alt={alt} /> : title.slice(0, 2).toUpperCase()}
+      {imageUrl ? <img src={imageUrl} alt={alt} className="h-full w-full object-cover" /> : title.slice(0, 2).toUpperCase()}
     </span>
   )
 }

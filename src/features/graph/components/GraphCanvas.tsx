@@ -1,7 +1,6 @@
 import type { PointerEvent as ReactPointerEvent, RefObject, WheelEvent } from 'react'
-import EntityAvatar from '../../../components/EntityAvatar'
 import type { GraphEdge, GraphNode } from '../../../types'
-import { EXPAND_BATCH_SIZE } from '../constants'
+import GraphNodeBubble from './GraphNodeBubble'
 import type { Point } from '../uiTypes'
 
 interface GraphCanvasProps {
@@ -24,22 +23,6 @@ interface GraphCanvasProps {
   onCanvasClick: () => void
   onNodeClick: (nodeKey: string) => void
   onNodeContextMenu: (nodeKey: string, x: number, y: number) => void
-}
-
-function nodeStatusLabel(node: GraphNode, remaining: number): string {
-  if (node.loading) {
-    return 'Loading...'
-  }
-
-  if (node.totalRelated === 0) {
-    return 'Click to expand'
-  }
-
-  if (remaining > 0) {
-    return `Click for +${Math.min(EXPAND_BATCH_SIZE, remaining)} more`
-  }
-
-  return 'No more new connections'
 }
 
 function GraphCanvas({
@@ -66,7 +49,7 @@ function GraphCanvas({
   return (
     <div
       ref={viewportRef}
-      className={`canvas ${isPanning ? 'is-panning' : ''}`}
+      className={`relative h-full w-full touch-none overflow-hidden overscroll-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -75,14 +58,16 @@ function GraphCanvas({
       onClick={onCanvasClick}
     >
       <div
-        className="canvas-grid"
+        className="absolute inset-0"
         style={{
+          backgroundImage:
+            'linear-gradient(to right, rgb(103 168 214 / 22%) 1px, transparent 1px), linear-gradient(to bottom, rgb(103 168 214 / 22%) 1px, transparent 1px)',
           backgroundSize: `${gridSize}px ${gridSize}px`,
           backgroundPosition: `${gridOffsetX}px ${gridOffsetY}px`,
         }}
       />
 
-      <svg className="edges-layer" aria-hidden="true">
+      <svg className="pointer-events-none absolute inset-0 h-full w-full [&_line]:stroke-cyan-200/55 [&_line]:stroke-[1.6]" aria-hidden="true">
         {edges.map((edge) => {
           const source = nodesByKey[edge.source]
           const target = nodesByKey[edge.target]
@@ -112,32 +97,15 @@ function GraphCanvas({
         const selected = selectedNodeKey === node.key
 
         return (
-          <button
+          <GraphNodeBubble
             key={node.key}
-            type="button"
-            data-node="true"
-            className={`bubble bubble-${node.kind} ${selected ? 'is-selected' : ''}`}
-            style={{
-              left: `${screenPoint.x}px`,
-              top: `${screenPoint.y}px`,
-            }}
-            onClick={(event) => {
-              event.stopPropagation()
-              onNodeClick(node.key)
-            }}
-            onContextMenu={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onNodeContextMenu(node.key, event.clientX, event.clientY)
-            }}
-          >
-            <EntityAvatar imagePath={node.imagePath} title={node.title} className="bubble-photo" />
-            <span className="bubble-copy">
-              <strong>{node.title}</strong>
-              {node.subtitle && <small>{node.subtitle}</small>}
-              <small className="bubble-status">{nodeStatusLabel(node, remaining)}</small>
-            </span>
-          </button>
+            node={node}
+            screenPoint={screenPoint}
+            remaining={remaining}
+            selected={selected}
+            onNodeClick={onNodeClick}
+            onNodeContextMenu={onNodeContextMenu}
+          />
         )
       })}
     </div>
