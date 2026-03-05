@@ -7,7 +7,12 @@ import { useGraphSearch } from './useGraphSearch'
 import type { Camera, Point } from '../uiTypes'
 import type { GraphNode, NodePhysics } from '../../../types'
 
-export function useGraphWorkspace() {
+interface UseGraphWorkspaceOptions {
+  onNodeClick?: () => void
+  onSearchEntityAdded?: () => void
+}
+
+export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, scale: 1 })
   const [physicsEnabled, setPhysicsEnabled] = useState(true)
@@ -35,6 +40,7 @@ export function useGraphWorkspace() {
     hiddenEntityKeys: data.hiddenEntityKeys,
     addSearchEntity: data.addSearchEntity,
     setErrorMessage: data.setErrorMessage,
+    onEntityAdded: options.onSearchEntityAdded,
   })
 
   const gestures = useGraphGestures({
@@ -88,6 +94,14 @@ export function useGraphWorkspace() {
     search.closeSearch()
   }, [data, search])
 
+  const handleNodeClick = useCallback(
+    (nodeKey: string): void => {
+      options.onNodeClick?.()
+      data.handleNodeClick(nodeKey)
+    },
+    [data, options],
+  )
+
   return {
     viewportRef,
     nodes: data.nodes,
@@ -129,7 +143,7 @@ export function useGraphWorkspace() {
     handlePointerMove: gestures.handlePointerMove,
     stopPanning: gestures.stopPanning,
     handleWheel: gestures.handleWheel,
-    handleNodeClick: data.handleNodeClick,
+    handleNodeClick,
     toScreenPoint,
     getRemainingRelatedCount: data.getRemainingRelatedCount,
     handleQueryChange: search.handleQueryChange,

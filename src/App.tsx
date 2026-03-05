@@ -7,14 +7,22 @@ import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
 import { isDemoModeEnabled } from './tmdb'
 
 interface HapticsController {
-  trigger: (input?: string) => Promise<void>
+  trigger: (input?: string | number) => Promise<void>
   destroy: () => void
 }
 
 function App() {
-  const workspace = useGraphWorkspace()
   const [searchOnlyMode, setSearchOnlyMode] = useState(false)
   const mobileHapticsRef = useRef<HapticsController | null>(null)
+
+  const triggerShortTapHaptic = useCallback(() => {
+    void mobileHapticsRef.current?.trigger(20)
+  }, [])
+
+  const workspace = useGraphWorkspace({
+    onNodeClick: triggerShortTapHaptic,
+    onSearchEntityAdded: triggerShortTapHaptic,
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') {

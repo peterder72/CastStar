@@ -7,9 +7,15 @@ interface UseGraphSearchParams {
   hiddenEntityKeys: string[]
   addSearchEntity: (entity: DiscoverEntity) => boolean
   setErrorMessage: (message: string | null) => void
+  onEntityAdded?: () => void
 }
 
-export function useGraphSearch({ hiddenEntityKeys, addSearchEntity, setErrorMessage }: UseGraphSearchParams) {
+export function useGraphSearch({
+  hiddenEntityKeys,
+  addSearchEntity,
+  setErrorMessage,
+  onEntityAdded,
+}: UseGraphSearchParams) {
   const [query, setQuery] = useState('')
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<DiscoverEntity[]>([])
@@ -26,18 +32,20 @@ export function useGraphSearch({ hiddenEntityKeys, addSearchEntity, setErrorMess
   }, [hiddenKeySet])
 
   const chooseSearchResult = useCallback(
-    (entity: DiscoverEntity): void => {
+    (entity: DiscoverEntity): boolean => {
       const added = addSearchEntity(entity)
 
       if (!added) {
-        return
+        return false
       }
 
+      onEntityAdded?.()
       setQuery('')
       setSearchResults([])
       setSearchOpen(false)
+      return true
     },
-    [addSearchEntity],
+    [addSearchEntity, onEntityAdded],
   )
 
   useEffect(() => {
