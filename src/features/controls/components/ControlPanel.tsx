@@ -186,7 +186,6 @@ function ControlPanel({
               </Button>
               <Button
                 disabled={!tokenConfigurable}
-                className={tokenConfigurable ? '' : 'cursor-not-allowed opacity-50'}
                 onClick={onOpenTokenSettings}
               >
                 Set Token

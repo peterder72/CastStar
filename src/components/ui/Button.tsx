@@ -24,7 +24,7 @@ function Button({ tone = 'default', size = 'md', className, type = 'button', ...
   return (
     <button
       type={type}
-      className={cn('rounded-lg border text-left transition', toneClasses[tone], sizeClasses[size], className)}
+      className={cn('rounded-lg border text-left transition disabled:cursor-not-allowed disabled:opacity-50', toneClasses[tone], sizeClasses[size], className)}
       {...props}
     />
   )

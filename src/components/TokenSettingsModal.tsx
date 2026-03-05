@@ -65,7 +65,7 @@ function TokenSettingsModal({ open, onClose }: TokenSettingsModalProps) {
             onClick={handleSave}
             className="min-h-10 rounded-lg border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Save &amp; Reload
+            Save & Reload
           </button>
         </div>
       </div>
