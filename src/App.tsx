@@ -4,7 +4,8 @@ import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
 import PerformanceHud from './features/graph/components/PerformanceHud'
 import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
-import { isDemoModeEnabled } from './tmdb'
+import { isDemoModeEnabled, isTokenConfigurable } from './tmdb'
+import TokenSettingsModal from './components/TokenSettingsModal'
 
 interface HapticsController {
   trigger: (
@@ -20,6 +21,8 @@ interface HapticsController {
 
 function App() {
   const [searchOnlyMode, setSearchOnlyMode] = useState(false)
+  const [tokenModalKey, setTokenModalKey] = useState(0)
+  const [tokenModalOpen, setTokenModalOpen] = useState(false)
   const mobileHapticsRef = useRef<HapticsController | null>(null)
 
   const triggerShortTapHaptic = useCallback(() => {
@@ -71,6 +74,15 @@ function App() {
     setSearchOnlyMode((value) => !value)
   }, [])
 
+  const openTokenSettings = useCallback(() => {
+    setTokenModalKey((k) => k + 1)
+    setTokenModalOpen(true)
+  }, [])
+
+  const closeTokenSettings = useCallback(() => {
+    setTokenModalOpen(false)
+  }, [])
+
   return (
     <div
       className="relative h-full w-full select-none overflow-hidden overscroll-none bg-[radial-gradient(circle_at_15%_15%,#1f4e73_0%,#101d2c_44%,#070b11_100%)] text-slate-100"
@@ -95,6 +107,7 @@ function App() {
         hiddenEntityList={workspace.hiddenEntityList}
         physicsSettings={workspace.physicsSettings}
         errorMessage={workspace.errorMessage}
+        tokenConfigurable={isTokenConfigurable}
         onQueryChange={workspace.handleQueryChange}
         onSearchFocus={workspace.handleSearchFocus}
         onSearchSubmit={workspace.submitSearch}
@@ -109,6 +122,7 @@ function App() {
         onUnhideEntity={workspace.unhideEntity}
         onPhysicsSettingChange={workspace.updatePhysicsSetting}
         onResetPhysics={workspace.resetGlobalPhysics}
+        onOpenTokenSettings={openTokenSettings}
       />
 
       <GraphCanvas
@@ -149,6 +163,8 @@ function App() {
           <span className="font-mono text-[0.7rem] font-semibold tracking-[0.14em]">DEMO</span>
         </div>
       )}
+
+      <TokenSettingsModal key={tokenModalKey} open={tokenModalOpen} onClose={closeTokenSettings} />
     </div>
   )
 }
