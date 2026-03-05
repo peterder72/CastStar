@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test:ui-render": "vitest run tests/ui-render.test.tsx",
     "lint": "eslint .",
     "preview": "vite preview",
     "bench:physics": "tsx scripts/benchmark-physics.ts"
@@ -30,6 +31,7 @@
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.0"
   }
 }
