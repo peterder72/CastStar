@@ -4,6 +4,7 @@ import GraphCanvas from './features/graph/components/GraphCanvas'
 import NodeContextMenu from './features/graph/components/NodeContextMenu'
 import PerformanceHud from './features/graph/components/PerformanceHud'
 import { useGraphWorkspace } from './features/graph/hooks/useGraphWorkspace'
+import { isDemoModeEnabled } from './tmdb'
 
 interface HapticsController {
   trigger: (input?: string) => Promise<void>
@@ -128,6 +129,13 @@ function App() {
       />
 
       <PerformanceHud stats={workspace.performanceStats} />
+
+      {isDemoModeEnabled && (
+        <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-[80] inline-flex items-center gap-1.5 rounded-xl border border-amber-300/45 bg-slate-950/78 px-2.5 py-1.5 text-amber-200 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md sm:bottom-3 sm:left-3">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.7)]" />
+          <span className="font-mono text-[0.7rem] font-semibold tracking-[0.14em]">DEMO</span>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,8 @@ import { entityKey, type DiscoverEntity, type NodeKind } from './types'
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 const TMDB_IMAGE_URL = 'https://image.tmdb.org/t/p/w185'
+const DEMO_CHILD_COUNT = 10
+const DEMO_KIND_SEQUENCE: NodeKind[] = ['person', 'movie', 'tv']
 
 const RAW_SECRET =
   import.meta.env.VITE_TMDB_READ_ACCESS_TOKEN ??
@@ -10,6 +12,11 @@ const RAW_SECRET =
 
 const TMDB_SECRET = RAW_SECRET.trim()
 const USE_BEARER_AUTH = TMDB_SECRET.includes('.') && TMDB_SECRET.length > 40
+const RAW_DEMO_FLAG =
+  import.meta.env.VITE_CASTSTAR_DEMO ??
+  (typeof __CASTSTAR_DEMO__ === 'string' ? __CASTSTAR_DEMO__ : '')
+const DEMO_MODE = parseBooleanEnvValue(RAW_DEMO_FLAG) || !TMDB_SECRET
+export const isDemoModeEnabled = DEMO_MODE
 
 interface MultiSearchResponse {
   results: MultiSearchItem[]
@@ -62,6 +69,50 @@ interface RankedEntity {
   popularity: number
   dateScore: number
   voteCount: number
+}
+
+function parseBooleanEnvValue(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on'
+}
+
+function demoHash(value: string): number {
+  let hash = 2166136261
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+
+  return (hash >>> 0) + 1
+}
+
+function toDemoSearchEntity(query: string): DiscoverEntity {
+  const title = query.trim() || 'Test'
+
+  return {
+    kind: 'person',
+    tmdbId: demoHash(`search:${title}`),
+    title,
+    subtitle: 'Demo result',
+    imagePath: null,
+  }
+}
+
+function toDemoRelatedEntities(entity: Pick<DiscoverEntity, 'kind' | 'tmdbId'>): DiscoverEntity[] {
+  const key = `${entity.kind}:${entity.tmdbId}`
+
+  return Array.from({ length: DEMO_CHILD_COUNT }, (_, index) => {
+    const order = index + 1
+    const kind = DEMO_KIND_SEQUENCE[index % DEMO_KIND_SEQUENCE.length]
+
+    return {
+      kind,
+      tmdbId: demoHash(`${key}:related:${order}`),
+      title: `Test_${order}`,
+      imagePath: null,
+    }
+  })
 }
 
 function ensureConfigured(): void {
@@ -220,6 +271,10 @@ export function getImageUrl(imagePath: string | null): string | null {
 }
 
 export async function searchMulti(query: string): Promise<DiscoverEntity[]> {
+  if (DEMO_MODE) {
+    return [toDemoSearchEntity(query)]
+  }
+
   const data = await tmdbFetch<MultiSearchResponse>('/search/multi', {
     query,
     include_adult: false,
@@ -305,6 +360,10 @@ async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
 }
 
 export async function fetchRelatedEntities(entity: Pick<DiscoverEntity, 'kind' | 'tmdbId'>): Promise<DiscoverEntity[]> {
+  if (DEMO_MODE) {
+    return toDemoRelatedEntities(entity)
+  }
+
   if (entity.kind === 'person') {
     return fetchPersonTitles(entity.tmdbId)
   }
