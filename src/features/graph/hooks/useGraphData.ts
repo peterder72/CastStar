@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react'
 import { EXPAND_BATCH_SIZE, MIN_NODE_DISTANCE } from '../constants'
+import { DEFAULT_GRAPH_PREFERENCES } from '../persistence'
 import type { Camera, HiddenEntity, NodeContextMenuState, Point } from '../uiTypes'
 import { isSelfAppearanceRole } from '../utils'
 import { fetchRelatedEntities, isAbortError } from '../../../tmdb'
@@ -35,6 +36,8 @@ interface EnsureNodeResult {
 interface UseGraphDataParams {
   viewportRef: RefObject<HTMLDivElement | null>
   cameraRef: MutableRefObject<Camera>
+  initialExcludeSelfAppearances?: boolean
+  initialIncludeCrewConnections?: boolean
 }
 
 interface UseGraphDataResult {
@@ -119,13 +122,18 @@ function withSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   })
 }
 
-export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): UseGraphDataResult {
+export function useGraphData({
+  viewportRef,
+  cameraRef,
+  initialExcludeSelfAppearances = DEFAULT_GRAPH_PREFERENCES.filters.excludeSelfAppearances,
+  initialIncludeCrewConnections = DEFAULT_GRAPH_PREFERENCES.filters.includeCrewConnections,
+}: UseGraphDataParams): UseGraphDataResult {
   const [nodes, setNodes] = useState<Record<string, GraphNode>>({})
   const [edges, setEdges] = useState<Record<string, GraphEdge>>({})
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [excludeSelfAppearances, setExcludeSelfAppearancesState] = useState(true)
-  const [includeCrewConnections, setIncludeCrewConnectionsState] = useState(false)
+  const [excludeSelfAppearances, setExcludeSelfAppearancesState] = useState(initialExcludeSelfAppearances)
+  const [includeCrewConnections, setIncludeCrewConnectionsState] = useState(initialIncludeCrewConnections)
   const [hiddenEntities, setHiddenEntities] = useState<Record<string, HiddenEntity>>({})
   const [contextMenu, setContextMenu] = useState<NodeContextMenuState | null>(null)
   const [relatedCacheSnapshot, setRelatedCacheSnapshot] = useState<Map<string, DiscoverEntity[]>>(new Map())

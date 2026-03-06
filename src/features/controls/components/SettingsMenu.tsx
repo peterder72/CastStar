@@ -56,11 +56,23 @@ function SettingsMenu({
   const [mobileDragOffset, setMobileDragOffset] = useState(0)
   const [mobileDragging, setMobileDragging] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const isMobileRef = useRef(false)
   const mobileDragStateRef = useRef<{ active: boolean; pointerId: number | null; startY: number }>({
     active: false,
     pointerId: null,
     startY: 0,
   })
+
+  const resetMobileSheetState = useCallback((): void => {
+    mobileDragStateRef.current = { active: false, pointerId: null, startY: 0 }
+    setMobileDragging(false)
+    setMobileDragOffset(0)
+  }, [])
+
+  const closeMenu = useCallback((): void => {
+    setOpen(false)
+    resetMobileSheetState()
+  }, [resetMobileSheetState])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -70,7 +82,15 @@ function SettingsMenu({
     const mediaQuery = window.matchMedia('(max-width: 639px)')
 
     const syncMobile = (): void => {
-      setIsMobile(mediaQuery.matches)
+      const nextIsMobile = mediaQuery.matches
+
+      if (nextIsMobile === isMobileRef.current) {
+        return
+      }
+
+      isMobileRef.current = nextIsMobile
+      setIsMobile(nextIsMobile)
+      resetMobileSheetState()
     }
 
     syncMobile()
@@ -79,7 +99,7 @@ function SettingsMenu({
     return () => {
       mediaQuery.removeEventListener('change', syncMobile)
     }
-  }, [])
+  }, [resetMobileSheetState])
 
   const updateDesktopPanelPosition = useCallback(() => {
     if (isMobile) {
@@ -98,14 +118,6 @@ function SettingsMenu({
   }, [isMobile])
 
   useEffect(() => {
-    if (!open || !isMobile) {
-      setMobileDragOffset(0)
-      setMobileDragging(false)
-      mobileDragStateRef.current = { active: false, pointerId: null, startY: 0 }
-    }
-  }, [open, isMobile])
-
-  useEffect(() => {
     if (!open) {
       return
     }
@@ -115,7 +127,7 @@ function SettingsMenu({
         return
       }
 
-      setOpen(false)
+      closeMenu()
       triggerRef.current?.focus()
     }
 
@@ -132,7 +144,7 @@ function SettingsMenu({
       window.removeEventListener('resize', updateDesktopPanelPosition)
       window.removeEventListener('scroll', updateDesktopPanelPosition, true)
     }
-  }, [open, isMobile, updateDesktopPanelPosition])
+  }, [closeMenu, open, isMobile, updateDesktopPanelPosition])
 
   const handleMobileDragStart = (event: ReactPointerEvent<HTMLDivElement>): void => {
     if (!isMobile) {
@@ -186,8 +198,7 @@ function SettingsMenu({
     setMobileDragging(false)
 
     if (mode === 'end' && mobileDragOffset > MOBILE_SHEET_CLOSE_THRESHOLD) {
-      setOpen(false)
-      setMobileDragOffset(0)
+      closeMenu()
       return
     }
 
@@ -203,7 +214,7 @@ function SettingsMenu({
             <button
               type="button"
               className={cn('fixed inset-0 z-[100]', isMobile ? 'bg-black/32 backdrop-blur-[1px]' : 'bg-transparent')}
-              onClick={() => setOpen(false)}
+              onClick={closeMenu}
               aria-label="Close settings"
             />
 
@@ -248,7 +259,7 @@ function SettingsMenu({
                   <Button
                     disabled={!tokenConfigurable}
                     onClick={() => {
-                      setOpen(false)
+                      closeMenu()
                       onOpenTokenSettings()
                     }}
                   >
@@ -355,7 +366,15 @@ function SettingsMenu({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() =>
+            setOpen((current) => {
+              if (current) {
+                resetMobileSheetState()
+              }
+
+              return !current
+            })
+          }
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-500/70 bg-slate-950/78 text-slate-200 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition hover:border-cyan-300/65 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/55 sm:h-11 sm:w-11"
           aria-label="Open settings"
           aria-expanded={open}

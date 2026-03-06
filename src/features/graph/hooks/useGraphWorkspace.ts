@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DEFAULT_PHYSICS } from '../constants'
+import {
+  GRAPH_PREFERENCES_WRITE_DEBOUNCE_MS,
+  readGraphPreferences,
+  writeGraphPreferences,
+} from '../persistence'
 import { useGraphData } from './useGraphData'
 import { useGraphGestures } from './useGraphGestures'
 import { useGraphPhysics } from './useGraphPhysics'
 import { useGraphSearch } from './useGraphSearch'
-import type { Camera, Point } from '../uiTypes'
+import type { Camera, InputMode, Point } from '../uiTypes'
 import type { GraphNode, NodePhysics } from '../../../types'
 
 interface UseGraphWorkspaceOptions {
@@ -14,15 +19,17 @@ interface UseGraphWorkspaceOptions {
 }
 
 export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
+  const [initialPreferences] = useState(readGraphPreferences)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, scale: 1 })
-  const [physicsEnabled, setPhysicsEnabled] = useState(true)
-  const [inputMode, setInputMode] = useState<'mouse' | 'trackpad'>('mouse')
-  const [physicsSettings, setPhysicsSettings] = useState<NodePhysics>({ ...DEFAULT_PHYSICS })
+  const [physicsEnabled, setPhysicsEnabled] = useState(initialPreferences.physicsEnabled)
+  const [inputMode, setInputMode] = useState<InputMode>(initialPreferences.inputMode)
+  const [physicsSettings, setPhysicsSettings] = useState<NodePhysics>({ ...initialPreferences.physicsSettings })
   const [showPhysicsSettings, setShowPhysicsSettings] = useState(false)
 
   const cameraRef = useRef(camera)
   const physicsRef = useRef(physicsSettings)
+  const persistTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     cameraRef.current = camera
@@ -35,7 +42,37 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
   const data = useGraphData({
     viewportRef,
     cameraRef,
+    initialExcludeSelfAppearances: initialPreferences.filters.excludeSelfAppearances,
+    initialIncludeCrewConnections: initialPreferences.filters.includeCrewConnections,
   })
+
+  useEffect(() => {
+    const nextPreferences = {
+      physicsEnabled,
+      inputMode,
+      physicsSettings,
+      filters: {
+        excludeSelfAppearances: data.excludeSelfAppearances,
+        includeCrewConnections: data.includeCrewConnections,
+      },
+    }
+
+    if (persistTimerRef.current !== null) {
+      window.clearTimeout(persistTimerRef.current)
+    }
+
+    persistTimerRef.current = window.setTimeout(() => {
+      persistTimerRef.current = null
+      writeGraphPreferences(nextPreferences)
+    }, GRAPH_PREFERENCES_WRITE_DEBOUNCE_MS)
+
+    return () => {
+      if (persistTimerRef.current !== null) {
+        window.clearTimeout(persistTimerRef.current)
+        persistTimerRef.current = null
+      }
+    }
+  }, [data.excludeSelfAppearances, data.includeCrewConnections, inputMode, physicsEnabled, physicsSettings])
 
   const search = useGraphSearch({
     hiddenEntityKeys: data.hiddenEntityKeys,
