@@ -131,6 +131,13 @@ interface RankedEntity {
   creditCategoryPriority: number
 }
 
+interface RequestOptions {
+  signal?: AbortSignal
+}
+
+export function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
+}
 
 function demoHash(value: string): number {
   let hash = 2166136261
@@ -198,6 +205,7 @@ function buildUrl(path: string, params: Record<string, string | number | boolean
 async function tmdbFetch<T>(
   path: string,
   params: Record<string, string | number | boolean | undefined> = {},
+  options: RequestOptions = {},
 ): Promise<T> {
   ensureConfigured()
 
@@ -207,7 +215,10 @@ async function tmdbFetch<T>(
       }
     : {}
 
-  const response = await fetch(buildUrl(path, params), { headers })
+  const response = await fetch(buildUrl(path, params), {
+    headers,
+    signal: options.signal,
+  })
 
   if (!response.ok) {
     const responseText = await response.text()
@@ -379,7 +390,7 @@ export function getImageUrl(imagePath: string | null): string | null {
   return `${TMDB_IMAGE_URL}${imagePath}`
 }
 
-export async function searchMulti(query: string): Promise<DiscoverEntity[]> {
+export async function searchMulti(query: string, options: RequestOptions = {}): Promise<DiscoverEntity[]> {
   if (DEMO_MODE) {
     return [toDemoSearchEntity(query)]
   }
@@ -389,7 +400,7 @@ export async function searchMulti(query: string): Promise<DiscoverEntity[]> {
     include_adult: false,
     language: 'en-US',
     page: 1,
-  })
+  }, options)
 
   const mapped = data.results
     .map(toMultiResultEntity)
@@ -398,8 +409,8 @@ export async function searchMulti(query: string): Promise<DiscoverEntity[]> {
   return uniqueEntities(mapped).slice(0, 20)
 }
 
-async function fetchMovieCast(movieId: number): Promise<DiscoverEntity[]> {
-  const data = await tmdbFetch<CreditsResponse>(`/movie/${movieId}/credits`, { language: 'en-US' })
+async function fetchMovieCast(movieId: number, options: RequestOptions = {}): Promise<DiscoverEntity[]> {
+  const data = await tmdbFetch<CreditsResponse>(`/movie/${movieId}/credits`, { language: 'en-US' }, options)
 
   const rankedCast = [...data.cast].sort((left, right) => {
     const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER
@@ -444,8 +455,8 @@ async function fetchMovieCast(movieId: number): Promise<DiscoverEntity[]> {
   return Array.from(deduped.values())
 }
 
-async function fetchTvCast(tvId: number): Promise<DiscoverEntity[]> {
-  const data = await tmdbFetch<CreditsResponse>(`/tv/${tvId}/credits`, { language: 'en-US' })
+async function fetchTvCast(tvId: number, options: RequestOptions = {}): Promise<DiscoverEntity[]> {
+  const data = await tmdbFetch<CreditsResponse>(`/tv/${tvId}/credits`, { language: 'en-US' }, options)
 
   const rankedCast = [...data.cast].sort((left, right) => {
     const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER
@@ -490,10 +501,10 @@ async function fetchTvCast(tvId: number): Promise<DiscoverEntity[]> {
   return Array.from(deduped.values())
 }
 
-async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
+async function fetchPersonTitles(personId: number, options: RequestOptions = {}): Promise<DiscoverEntity[]> {
   const data = await tmdbFetch<CombinedCreditsResponse>(`/person/${personId}/combined_credits`, {
     language: 'en-US',
-  })
+  }, options)
 
   const rankedMap = new Map<string, RankedEntity>()
 
@@ -574,18 +585,21 @@ async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
     .map((item) => item.entity)
 }
 
-export async function fetchRelatedEntities(entity: Pick<DiscoverEntity, 'kind' | 'tmdbId'>): Promise<DiscoverEntity[]> {
+export async function fetchRelatedEntities(
+  entity: Pick<DiscoverEntity, 'kind' | 'tmdbId'>,
+  options: RequestOptions = {},
+): Promise<DiscoverEntity[]> {
   if (DEMO_MODE) {
     return toDemoRelatedEntities(entity)
   }
 
   if (entity.kind === 'person') {
-    return fetchPersonTitles(entity.tmdbId)
+    return fetchPersonTitles(entity.tmdbId, options)
   }
 
   if (entity.kind === 'movie') {
-    return fetchMovieCast(entity.tmdbId)
+    return fetchMovieCast(entity.tmdbId, options)
   }
 
-  return fetchTvCast(entity.tmdbId)
+  return fetchTvCast(entity.tmdbId, options)
 }

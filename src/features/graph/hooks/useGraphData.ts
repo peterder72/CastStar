@@ -12,7 +12,13 @@ import {
 import { EXPAND_BATCH_SIZE, MIN_NODE_DISTANCE } from '../constants'
 import type { Camera, HiddenEntity, NodeContextMenuState, Point } from '../uiTypes'
 import { isSelfAppearanceRole } from '../utils'
-import { fetchRelatedEntities } from '../../../tmdb'
+import { fetchRelatedEntities, isAbortError } from '../../../tmdb'
+import {
+  computeRemainingRelatedCountByNode,
+  deleteRelatedCacheEntries,
+  setRelatedCacheEntry,
+  touchRelatedCacheEntry,
+} from './relatedCache'
 import {
   entityKey,
   type DiscoverEntity,
@@ -74,6 +80,45 @@ interface AddSelectedRelationsResult {
   missing: number
 }
 
+function toAbortError(): Error {
+  const error = new Error('Request aborted.')
+  error.name = 'AbortError'
+  return error
+}
+
+function withSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) {
+    return promise
+  }
+
+  if (signal.aborted) {
+    return Promise.reject(toAbortError())
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => {
+      cleanup()
+      reject(toAbortError())
+    }
+    const cleanup = () => {
+      signal.removeEventListener('abort', handleAbort)
+    }
+
+    signal.addEventListener('abort', handleAbort, { once: true })
+
+    promise.then(
+      (value) => {
+        cleanup()
+        resolve(value)
+      },
+      (error) => {
+        cleanup()
+        reject(error)
+      },
+    )
+  })
+}
+
 export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): UseGraphDataResult {
   const [nodes, setNodes] = useState<Record<string, GraphNode>>({})
   const [edges, setEdges] = useState<Record<string, GraphEdge>>({})
@@ -83,12 +128,16 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   const [includeCrewConnections, setIncludeCrewConnectionsState] = useState(false)
   const [hiddenEntities, setHiddenEntities] = useState<Record<string, HiddenEntity>>({})
   const [contextMenu, setContextMenu] = useState<NodeContextMenuState | null>(null)
+  const [relatedCacheSnapshot, setRelatedCacheSnapshot] = useState<Map<string, DiscoverEntity[]>>(new Map())
+  const [replayQueueSnapshot, setReplayQueueSnapshot] = useState<Record<string, string[]>>({})
 
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const hiddenKeysRef = useRef(new Set<string>())
   const hiddenEntitiesRef = useRef(hiddenEntities)
-  const relatedCacheRef = useRef<Record<string, DiscoverEntity[]>>({})
+  const relatedCacheRef = useRef<Map<string, DiscoverEntity[]>>(new Map())
+  const relatedRequestRef = useRef<Record<string, Promise<DiscoverEntity[]>>>({})
+  const relatedAbortControllerRef = useRef<Record<string, AbortController>>({})
   const replayQueueRef = useRef<Record<string, string[]>>({})
   const excludeSelfAppearancesRef = useRef(excludeSelfAppearances)
   const includeCrewConnectionsRef = useRef(includeCrewConnections)
@@ -113,6 +162,20 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   useEffect(() => {
     includeCrewConnectionsRef.current = includeCrewConnections
   }, [includeCrewConnections])
+
+  const hiddenKeySet = useMemo(() => new Set(Object.keys(hiddenEntities)), [hiddenEntities])
+
+  useEffect(() => {
+    return () => {
+      const activeControllers = Object.values(relatedAbortControllerRef.current)
+      for (const controller of activeControllers) {
+        controller.abort()
+      }
+
+      relatedAbortControllerRef.current = {}
+      relatedRequestRef.current = {}
+    }
+  }, [])
 
   const setExcludeSelfAppearances = useCallback<Dispatch<SetStateAction<boolean>>>((value) => {
     const previousValue = excludeSelfAppearancesRef.current
@@ -232,7 +295,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
   const shouldSkipRelatedEntity = useCallback(
     (parentNode: GraphNode, candidate: DiscoverEntity): boolean => {
-      if (hiddenKeysRef.current.has(entityKey(candidate))) {
+      if (hiddenKeySet.has(entityKey(candidate))) {
         return true
       }
 
@@ -246,7 +309,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
       return false
     },
-    [excludeSelfAppearances, includeCrewConnections],
+    [excludeSelfAppearances, hiddenKeySet, includeCrewConnections],
   )
 
   const ensureNode = useCallback(
@@ -309,7 +372,46 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     setNodes(nextNodes)
   }, [])
 
-  const removeNodesFromGraph = useCallback((keysToRemove: Set<string>): void => {
+  const publishRelatedCacheSnapshot = useCallback((): void => {
+    setRelatedCacheSnapshot(new Map(relatedCacheRef.current))
+  }, [])
+
+  const publishReplayQueueSnapshot = useCallback((): void => {
+    setReplayQueueSnapshot({ ...replayQueueRef.current })
+  }, [])
+
+  const abortRelatedRequests = useCallback((keys: Iterable<string>): void => {
+    const nextControllers = { ...relatedAbortControllerRef.current }
+    const nextRequests = { ...relatedRequestRef.current }
+    let changed = false
+
+    for (const key of keys) {
+      const controller = nextControllers[key]
+
+      if (controller) {
+        controller.abort()
+        delete nextControllers[key]
+        changed = true
+      }
+
+      if (key in nextRequests) {
+        delete nextRequests[key]
+        changed = true
+      }
+    }
+
+    if (changed) {
+      relatedAbortControllerRef.current = nextControllers
+      relatedRequestRef.current = nextRequests
+    }
+  }, [])
+
+  const removeNodesFromGraph = useCallback((
+    keysToRemove: Set<string>,
+    options?: {
+      preserveRelatedCacheKeys?: Set<string>
+    },
+  ): void => {
     if (keysToRemove.size === 0) {
       return
     }
@@ -352,6 +454,22 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       }
 
       replayQueueRef.current = nextReplayQueue
+      publishReplayQueueSnapshot()
+    }
+
+    const keysToEvict = new Set<string>()
+    const preservedKeys = options?.preserveRelatedCacheKeys
+
+    for (const key of keysToRemove) {
+      if (!preservedKeys || !preservedKeys.has(key)) {
+        keysToEvict.add(key)
+      }
+    }
+
+    if (keysToEvict.size > 0) {
+      abortRelatedRequests(keysToEvict)
+      deleteRelatedCacheEntries(relatedCacheRef.current, keysToEvict)
+      publishRelatedCacheSnapshot()
     }
 
     nodesRef.current = nextNodes
@@ -360,7 +478,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     setEdges(nextEdges)
     setSelectedNodeKey((current) => (current && keysToRemove.has(current) ? null : current))
     setContextMenu((current) => (current && keysToRemove.has(current.nodeKey) ? null : current))
-  }, [])
+  }, [abortRelatedRequests, publishRelatedCacheSnapshot, publishReplayQueueSnapshot])
 
   const ensureEdge = useCallback((leftKey: string, rightKey: string): void => {
     if (leftKey === rightKey || hiddenKeysRef.current.has(leftKey) || hiddenKeysRef.current.has(rightKey)) {
@@ -413,7 +531,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       return
     }
 
-    const related = relatedCacheRef.current[nodeKey]
+    const related = touchRelatedCacheEntry(relatedCacheRef.current, nodeKey)
 
     if (!related) {
       return
@@ -448,7 +566,8 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       ...replayQueueRef.current,
       [nodeKey]: mergedQueue,
     }
-  }, [])
+    publishReplayQueueSnapshot()
+  }, [publishReplayQueueSnapshot])
 
   const restoreHiddenEntityToGraph = useCallback(
     (item: HiddenEntity): void => {
@@ -498,11 +617,17 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   )
 
   const getOrFetchRelatedEntities = useCallback(
-    async (nodeKey: string): Promise<DiscoverEntity[]> => {
-      const cached = relatedCacheRef.current[nodeKey]
+    async (nodeKey: string, signal?: AbortSignal): Promise<DiscoverEntity[]> => {
+      const cached = touchRelatedCacheEntry(relatedCacheRef.current, nodeKey)
 
       if (cached) {
         return cached
+      }
+
+      const inFlightRequest = relatedRequestRef.current[nodeKey]
+
+      if (inFlightRequest) {
+        return withSignal(inFlightRequest, signal)
       }
 
       const node = nodesRef.current[nodeKey]
@@ -511,11 +636,56 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         return []
       }
 
-      const related = await fetchRelatedEntities(node)
-      relatedCacheRef.current[nodeKey] = related
-      return related
+      const controller = new AbortController()
+      const externalSignal = signal
+
+      const handleExternalAbort = () => {
+        controller.abort()
+      }
+
+      if (externalSignal) {
+        if (externalSignal.aborted) {
+          controller.abort()
+        } else {
+          externalSignal.addEventListener('abort', handleExternalAbort, { once: true })
+        }
+      }
+
+      relatedAbortControllerRef.current = {
+        ...relatedAbortControllerRef.current,
+        [nodeKey]: controller,
+      }
+
+      const request = fetchRelatedEntities(node, {
+        signal: controller.signal,
+      })
+        .then((related) => {
+          setRelatedCacheEntry(relatedCacheRef.current, nodeKey, related)
+          publishRelatedCacheSnapshot()
+          return related
+        })
+        .finally(() => {
+          if (externalSignal) {
+            externalSignal.removeEventListener('abort', handleExternalAbort)
+          }
+
+          const nextRequests = { ...relatedRequestRef.current }
+          delete nextRequests[nodeKey]
+          relatedRequestRef.current = nextRequests
+
+          const nextControllers = { ...relatedAbortControllerRef.current }
+          delete nextControllers[nodeKey]
+          relatedAbortControllerRef.current = nextControllers
+        })
+
+      relatedRequestRef.current = {
+        ...relatedRequestRef.current,
+        [nodeKey]: request,
+      }
+
+      return withSignal(request, signal)
     },
-    [],
+    [publishRelatedCacheSnapshot],
   )
 
   const addSearchEntity = useCallback(
@@ -570,7 +740,9 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         }
       })
 
-      removeNodesFromGraph(new Set([nodeKey]))
+      removeNodesFromGraph(new Set([nodeKey]), {
+        preserveRelatedCacheKeys: new Set([nodeKey]),
+      })
       setContextMenu(null)
       setErrorMessage(null)
     },
@@ -703,10 +875,12 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
               ...replayQueueRef.current,
               [nodeKey]: deferredQueue,
             }
+            publishReplayQueueSnapshot()
           } else {
             const nextReplayQueue = { ...replayQueueRef.current }
             delete nextReplayQueue[nodeKey]
             replayQueueRef.current = nextReplayQueue
+            publishReplayQueueSnapshot()
           }
         }
 
@@ -753,12 +927,26 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
           totalRelated: related.length,
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
         patchNode(nodeKey, { loading: false })
+
+        if (isAbortError(error)) {
+          return
+        }
+
+        const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
         setErrorMessage(message)
       }
     },
-    [ensureEdge, ensureNode, expansionPosition, getConnectedNodeKeys, getOrFetchRelatedEntities, patchNode, shouldSkipRelatedEntity],
+    [
+      ensureEdge,
+      ensureNode,
+      expansionPosition,
+      getConnectedNodeKeys,
+      getOrFetchRelatedEntities,
+      patchNode,
+      publishReplayQueueSnapshot,
+      shouldSkipRelatedEntity,
+    ],
   )
 
   const loadRelatedSelectionOptions = useCallback(
@@ -779,6 +967,10 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
         return filteredRelated
       } catch (error) {
+        if (isAbortError(error)) {
+          return []
+        }
+
         const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
         setErrorMessage(message)
         throw error
@@ -812,6 +1004,15 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       try {
         related = await getOrFetchRelatedEntities(nodeKey)
       } catch (error) {
+        if (isAbortError(error)) {
+          return {
+            added: 0,
+            alreadyConnected: 0,
+            hidden: 0,
+            missing: 0,
+          }
+        }
+
         const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
         setErrorMessage(message)
         throw error
@@ -884,16 +1085,19 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   )
 
   const clearAllGraph = useCallback((): void => {
+    abortRelatedRequests(Object.keys(relatedAbortControllerRef.current))
     nodesRef.current = {}
     edgesRef.current = {}
-    relatedCacheRef.current = {}
+    relatedCacheRef.current = new Map()
     replayQueueRef.current = {}
+    setRelatedCacheSnapshot(new Map())
+    setReplayQueueSnapshot({})
     setNodes({})
     setEdges({})
     setSelectedNodeKey(null)
     setContextMenu(null)
     setErrorMessage(null)
-  }, [])
+  }, [abortRelatedRequests])
 
   const unhideEntity = useCallback((key: string): void => {
     const item = hiddenEntitiesRef.current[key]
@@ -908,6 +1112,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     hiddenEntitiesRef.current = nextHidden
     hiddenKeysRef.current = new Set(Object.keys(nextHidden))
     setHiddenEntities(nextHidden)
+    touchRelatedCacheEntry(relatedCacheRef.current, key)
     restoreHiddenEntityToGraph(item)
   }, [restoreHiddenEntityToGraph])
 
@@ -949,55 +1154,22 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     }
   }, [restoreHiddenEntityToGraph])
 
+  const remainingRelatedCountByNode = useMemo(
+    () => computeRemainingRelatedCountByNode({
+      nodes,
+      edges,
+      relatedCache: relatedCacheSnapshot,
+      replayQueueByNodeKey: replayQueueSnapshot,
+      shouldSkipRelatedEntity,
+    }),
+    [edges, nodes, relatedCacheSnapshot, replayQueueSnapshot, shouldSkipRelatedEntity],
+  )
+
   const getRemainingRelatedCount = useCallback(
     (node: GraphNode): number => {
-      const related = relatedCacheRef.current[node.key]
-
-      if (!related) {
-        return 0
-      }
-
-      const relatedByKey = new Map<string, DiscoverEntity>()
-      const connectedKeys = getConnectedNodeKeys(node.key)
-      const counted = new Set<string>()
-      let remaining = 0
-
-      for (const candidate of related) {
-        relatedByKey.set(entityKey(candidate), candidate)
-      }
-
-      for (const queuedKey of replayQueueRef.current[node.key] ?? []) {
-        if (counted.has(queuedKey) || connectedKeys.has(queuedKey)) {
-          continue
-        }
-
-        const candidate = relatedByKey.get(queuedKey)
-
-        if (!candidate || shouldSkipRelatedEntity(node, candidate)) {
-          continue
-        }
-
-        counted.add(queuedKey)
-        remaining += 1
-      }
-
-      for (let index = node.expansionCursor; index < related.length; index += 1) {
-        const candidate = related[index]
-        const candidateKey = entityKey(candidate)
-
-        if (counted.has(candidateKey) || connectedKeys.has(candidateKey)) {
-          continue
-        }
-
-        if (!shouldSkipRelatedEntity(node, candidate)) {
-          counted.add(candidateKey)
-          remaining += 1
-        }
-      }
-
-      return remaining
+      return remainingRelatedCountByNode[node.key] ?? 0
     },
-    [getConnectedNodeKeys, shouldSkipRelatedEntity],
+    [remainingRelatedCountByNode],
   )
 
   const nodeList = useMemo(() => Object.values(nodes), [nodes])

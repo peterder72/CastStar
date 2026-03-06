@@ -1,12 +1,12 @@
 {
   "name": "caststar-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test:ui-render": "vitest run tests/ui-render.test.tsx",
+    "test:ui-render": "vitest run tests/ui-render.test.tsx tests/memory-remediation.test.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "bench:physics": "tsx scripts/benchmark-physics.ts"

@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SEARCH_DEBOUNCE_MS } from '../constants'
-import { searchMulti } from '../../../tmdb'
+import { isAbortError, searchMulti } from '../../../tmdb'
 import { entityKey, type DiscoverEntity } from '../../../types'
 
 interface UseGraphSearchParams {
@@ -21,6 +21,7 @@ export function useGraphSearch({
   const [searchResults, setSearchResults] = useState<DiscoverEntity[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRequestRef = useRef(0)
+  const activeSearchControllerRef = useRef<AbortController | null>(null)
 
   const hiddenKeySet = useMemo(() => new Set(hiddenEntityKeys), [hiddenEntityKeys])
 
@@ -48,25 +49,49 @@ export function useGraphSearch({
     [addSearchEntity, onEntityAdded],
   )
 
+  const abortActiveSearch = useCallback((): void => {
+    const activeController = activeSearchControllerRef.current
+
+    if (!activeController) {
+      return
+    }
+
+    activeController.abort()
+    activeSearchControllerRef.current = null
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      abortActiveSearch()
+    }
+  }, [abortActiveSearch])
+
   useEffect(() => {
     const trimmedQuery = query.trim()
 
     if (trimmedQuery.length < 2) {
+      abortActiveSearch()
       setSearchResults([])
       setSearchOpen(false)
       setSearchLoading(false)
       return
     }
 
+    abortActiveSearch()
+
     const requestId = searchRequestRef.current + 1
     searchRequestRef.current = requestId
+    const controller = new AbortController()
+    activeSearchControllerRef.current = controller
 
     setSearchLoading(true)
 
     const timerId = window.setTimeout(() => {
       void (async () => {
         try {
-          const results = await searchMulti(trimmedQuery)
+          const results = await searchMulti(trimmedQuery, {
+            signal: controller.signal,
+          })
 
           if (requestId !== searchRequestRef.current) {
             return
@@ -76,6 +101,10 @@ export function useGraphSearch({
           setSearchResults(filteredResults)
           setSearchOpen(true)
         } catch (error) {
+          if (isAbortError(error)) {
+            return
+          }
+
           if (requestId !== searchRequestRef.current) {
             return
           }
@@ -86,6 +115,9 @@ export function useGraphSearch({
         } finally {
           if (requestId === searchRequestRef.current) {
             setSearchLoading(false)
+            if (activeSearchControllerRef.current === controller) {
+              activeSearchControllerRef.current = null
+            }
           }
         }
       })()
@@ -93,8 +125,12 @@ export function useGraphSearch({
 
     return () => {
       window.clearTimeout(timerId)
+      controller.abort()
+      if (activeSearchControllerRef.current === controller) {
+        activeSearchControllerRef.current = null
+      }
     }
-  }, [hiddenKeySet, query, setErrorMessage])
+  }, [abortActiveSearch, hiddenKeySet, query, setErrorMessage])
 
   const submitSearch = useCallback(
     async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -110,9 +146,23 @@ export function useGraphSearch({
         return
       }
 
+      abortActiveSearch()
+      const requestId = searchRequestRef.current + 1
+      searchRequestRef.current = requestId
+      const controller = new AbortController()
+      activeSearchControllerRef.current = controller
+
       try {
         setSearchLoading(true)
-        const results = await searchMulti(trimmedQuery)
+
+        const results = await searchMulti(trimmedQuery, {
+          signal: controller.signal,
+        })
+
+        if (requestId !== searchRequestRef.current) {
+          return
+        }
+
         const filteredResults = results.filter((entity) => !hiddenKeySet.has(entityKey(entity)))
         setSearchResults(filteredResults)
         setSearchOpen(true)
@@ -121,12 +171,21 @@ export function useGraphSearch({
           chooseSearchResult(filteredResults[0])
         }
       } catch (error) {
+        if (isAbortError(error)) {
+          return
+        }
+
         setErrorMessage(error instanceof Error ? error.message : 'Search request failed.')
       } finally {
-        setSearchLoading(false)
+        if (requestId === searchRequestRef.current) {
+          setSearchLoading(false)
+          if (activeSearchControllerRef.current === controller) {
+            activeSearchControllerRef.current = null
+          }
+        }
       }
     },
-    [chooseSearchResult, hiddenKeySet, query, searchResults, setErrorMessage],
+    [abortActiveSearch, chooseSearchResult, hiddenKeySet, query, searchResults, setErrorMessage],
   )
 
   const handleQueryChange = useCallback(
