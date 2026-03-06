@@ -1,108 +1,107 @@
-# React + TypeScript + Vite
+# CastStar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive React + TypeScript app for exploring cast/title connections from TMDB in a force-directed graph.
 
-Currently, two official plugins are available:
+Demo: [https://peterder72.github.io/CastStar/](https://peterder72.github.io/CastStar/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+> [!WARNING]
+> This project is fully made by AI.
 
-## React Compiler
+## What It Does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Search people, movies, or TV shows.
+- Add results to a graph and expand connections in batches.
+- Traverse cast and (optionally) crew relationships.
+- Hide, prune, delete, or manually add node relationships from the context menu.
+- Tune global physics and interaction settings (mouse vs trackpad).
 
-## Expanding the ESLint configuration
+## Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 22
+- Vite 7
+- TypeScript 5.9
+- React 19
+- Tailwind CSS 4
+- Vitest + ESLint 9
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-## Performance Benchmark
-
-Run the physics micro-benchmark:
+## Local Development
 
 ```bash
+npm ci
+npm run dev
+```
+
+## Build and Validate
+
+```bash
+npm run build
+npm run lint
+npm run test:ui-render
 npm run bench:physics
 ```
 
-It prints average / p95 step time for several graph sizes. Lower `avg` and `p95` means less chance of frame drops from physics.
+Preview production build:
 
-## Screenshot Capture
+```bash
+npm run preview
+```
 
-Capture both desktop and mobile layout screenshots from a running URL (or from a temporary local Vite server):
+## TMDB Integration
+
+CastStar uses TMDB search and credits endpoints to discover and expand entities.
+
+### Token Resolution Order
+
+1. `VITE_TMDB_READ_ACCESS_TOKEN`
+2. `VITE_TMDB_API_KEY`
+3. `TMDB_API_KEY` (injected at build time by `vite.config.ts`)
+4. Local override in browser `localStorage` key: `caststar_tmdb_token`
+
+If no token is available, the app automatically runs in demo mode.
+
+### Force Demo Mode
+
+Set either of these to a truthy value (`true`, `1`, `yes`, `on`):
+
+- `VITE_CASTSTAR_DEMO`
+- `CASTSTAR_DEMO`
+
+### Example `.env`
+
+```env
+# Preferred: TMDB v4 read access token (Bearer auth)
+VITE_TMDB_READ_ACCESS_TOKEN=your_tmdb_read_access_token
+
+# Optional alternatives:
+# VITE_TMDB_API_KEY=your_v3_api_key
+# TMDB_API_KEY=your_v3_api_key
+
+# Optional:
+# VITE_CASTSTAR_DEMO=true
+```
+
+You can also set/change the token from the app UI (`Settings -> Set Token`) when build-time token injection is not used.
+
+## Layout Screenshots
+
+Capture desktop + mobile screenshots:
 
 ```bash
 npm run screenshot:layouts
 ```
 
-Optional arguments:
+Outputs:
 
-```bash
-npm run screenshot:layouts -- --route / --out-dir artifacts/screenshots
-npm run screenshot:layouts -- --url http://127.0.0.1:5173 --route /
-```
-
-Output files:
 - `artifacts/screenshots/desktop.png`
 - `artifacts/screenshots/mobile.png`
 
-If Playwright browser binaries are missing, run:
+If Playwright Chromium is missing:
 
 ```bash
 npx playwright install chromium
 ```
+
+## Notes
+
+- Do not commit real TMDB credentials.
+- This product uses the TMDB API but is not endorsed or certified by TMDB.
