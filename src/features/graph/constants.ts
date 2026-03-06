@@ -6,6 +6,10 @@ export const EXPAND_BATCH_SIZE = 10
 export const MIN_NODE_DISTANCE = 180
 export const BASE_REPULSION_FORCE = 22000
 export const POSITION_EPSILON = 0.0005
+export const MIN_TRACKPAD_SENSITIVITY = 0.4
+export const MAX_TRACKPAD_SENSITIVITY = 3
+export const DEFAULT_TRACKPAD_SENSITIVITY = 1
+export const TRACKPAD_SENSITIVITY_STEP = 0.1
 
 export const PHYSICS_CONTROLS: PhysicsControl[] = [
   { key: 'mass', label: 'Mass', min: 0.4, max: 4, step: 0.1, precision: 1 },

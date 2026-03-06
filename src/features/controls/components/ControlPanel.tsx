@@ -22,6 +22,7 @@ interface ControlPanelProps {
   hiddenEntityList: HiddenEntity[]
   errorMessage: string | null
   inputMode: InputMode
+  trackpadSensitivity: number
   physicsEnabled: boolean
   showPhysicsSettings: boolean
   physicsSettings: NodePhysics
@@ -32,6 +33,7 @@ interface ControlPanelProps {
   onChooseSearchResult: (entity: DiscoverEntity) => void
   onToggleSearchOnlyMode: () => void
   onInputModeChange: (mode: InputMode) => void
+  onTrackpadSensitivityChange: (value: number) => void
   onPhysicsEnabledChange: (enabled: boolean) => void
   onClearAllGraph: () => void
   onTogglePhysicsSettings: () => void
@@ -56,6 +58,7 @@ function ControlPanel({
   hiddenEntityList,
   errorMessage,
   inputMode,
+  trackpadSensitivity,
   physicsEnabled,
   showPhysicsSettings,
   physicsSettings,
@@ -66,6 +69,7 @@ function ControlPanel({
   onChooseSearchResult,
   onToggleSearchOnlyMode,
   onInputModeChange,
+  onTrackpadSensitivityChange,
   onPhysicsEnabledChange,
   onClearAllGraph,
   onTogglePhysicsSettings,
@@ -122,11 +126,13 @@ function ControlPanel({
           </button>
           <SettingsMenu
             inputMode={inputMode}
+            trackpadSensitivity={trackpadSensitivity}
             physicsEnabled={physicsEnabled}
             showPhysicsSettings={showPhysicsSettings}
             physicsSettings={physicsSettings}
             tokenConfigurable={tokenConfigurable}
             onInputModeChange={onInputModeChange}
+            onTrackpadSensitivityChange={onTrackpadSensitivityChange}
             onPhysicsEnabledChange={onPhysicsEnabledChange}
             onClearAllGraph={onClearAllGraph}
             onTogglePhysicsSettings={onTogglePhysicsSettings}

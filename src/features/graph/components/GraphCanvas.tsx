@@ -1,11 +1,12 @@
 import type { PointerEvent as ReactPointerEvent, RefObject, WheelEvent } from 'react'
 import type { GraphEdge, GraphNode } from '../../../types'
 import GraphNodeBubble from './GraphNodeBubble'
-import type { Point } from '../uiTypes'
+import type { InputMode, Point } from '../uiTypes'
 
 interface GraphCanvasProps {
   viewportRef: RefObject<HTMLDivElement | null>
   isPanning: boolean
+  inputMode: InputMode
   gridSize: number
   gridOffsetX: number
   gridOffsetY: number
@@ -28,6 +29,7 @@ interface GraphCanvasProps {
 function GraphCanvas({
   viewportRef,
   isPanning,
+  inputMode,
   gridSize,
   gridOffsetX,
   gridOffsetY,
@@ -46,10 +48,12 @@ function GraphCanvas({
   onNodeClick,
   onNodeContextMenu,
 }: GraphCanvasProps) {
+  const cursorClass = inputMode === 'trackpad' ? 'cursor-default' : isPanning ? 'cursor-grabbing' : 'cursor-grab'
+
   return (
     <div
       ref={viewportRef}
-      className={`relative h-full w-full touch-none overflow-hidden overscroll-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`relative h-full w-full touch-none overflow-hidden overscroll-none ${cursorClass}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

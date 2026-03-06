@@ -69,6 +69,7 @@ function App() {
         hiddenEntityList={workspace.hiddenEntityList}
         errorMessage={workspace.errorMessage}
         inputMode={workspace.inputMode}
+        trackpadSensitivity={workspace.trackpadSensitivity}
         physicsEnabled={workspace.physicsEnabled}
         showPhysicsSettings={workspace.showPhysicsSettings}
         physicsSettings={workspace.physicsSettings}
@@ -79,6 +80,7 @@ function App() {
         onChooseSearchResult={workspace.chooseSearchResult}
         onToggleSearchOnlyMode={toggleSearchOnlyMode}
         onInputModeChange={workspace.setInputMode}
+        onTrackpadSensitivityChange={workspace.setTrackpadSensitivity}
         onPhysicsEnabledChange={workspace.setPhysicsEnabled}
         onClearAllGraph={workspace.clearAllGraph}
         onTogglePhysicsSettings={workspace.togglePhysicsSettings}
@@ -94,6 +96,7 @@ function App() {
       <GraphCanvas
         viewportRef={workspace.viewportRef}
         isPanning={workspace.isPanning}
+        inputMode={workspace.inputMode}
         gridSize={workspace.gridSize}
         gridOffsetX={workspace.gridOffsetX}
         gridOffsetY={workspace.gridOffsetY}

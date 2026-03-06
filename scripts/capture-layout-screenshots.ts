@@ -1,13 +1,14 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { chromium, devices, type Browser } from 'playwright'
+import { chromium, devices, type Browser, type Page } from 'playwright'
 import { createServer, type ViteDevServer } from 'vite'
 
 interface CliOptions {
   outDir: string
   route: string
   targetUrl: string | null
+  openSettings: boolean
 }
 
 interface RunningServer {
@@ -20,6 +21,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     outDir: 'artifacts/screenshots',
     route: '/',
     targetUrl: null,
+    openSettings: false,
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -60,6 +62,11 @@ function parseCliOptions(argv: string[]): CliOptions {
       continue
     }
 
+    if (key === '--open-settings') {
+      options.openSettings = true
+      continue
+    }
+
     if (key === '--help') {
       printHelp()
       process.exit(0)
@@ -73,7 +80,9 @@ function parseCliOptions(argv: string[]): CliOptions {
 
 function printHelp(): void {
   console.log('Capture CastStar screenshots for desktop and mobile viewports.')
-  console.log('Usage: npm run screenshot:layouts -- [--out-dir artifacts/screenshots] [--route /] [--url http://127.0.0.1:5173]')
+  console.log(
+    'Usage: npm run screenshot:layouts -- [--out-dir artifacts/screenshots] [--route /] [--url http://127.0.0.1:5173] [--open-settings]',
+  )
 }
 
 function normalizeRoute(route: string): string {
@@ -111,6 +120,11 @@ async function startViteServer(): Promise<RunningServer> {
   }
 }
 
+async function openSettingsMenu(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  await page.getByRole('dialog', { name: 'Settings menu' }).waitFor({ state: 'visible' })
+}
+
 async function run(): Promise<void> {
   const options = parseCliOptions(process.argv.slice(2))
   const outDir = path.resolve(options.outDir)
@@ -140,6 +154,9 @@ async function run(): Promise<void> {
 
     const desktopPage = await desktopContext.newPage()
     await desktopPage.goto(captureUrl, { waitUntil: 'networkidle' })
+    if (options.openSettings) {
+      await openSettingsMenu(desktopPage)
+    }
     await desktopPage.waitForTimeout(1000)
     await desktopPage.screenshot({ path: desktopPath, fullPage: true })
     await desktopContext.close()
@@ -150,6 +167,9 @@ async function run(): Promise<void> {
 
     const mobilePage = await mobileContext.newPage()
     await mobilePage.goto(captureUrl, { waitUntil: 'networkidle' })
+    if (options.openSettings) {
+      await openSettingsMenu(mobilePage)
+    }
     await mobilePage.waitForTimeout(1000)
     await mobilePage.screenshot({ path: mobilePath, fullPage: true })
     await mobileContext.close()

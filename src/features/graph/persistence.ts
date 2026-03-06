@@ -1,5 +1,11 @@
 import type { NodePhysics } from '../../types'
-import { PHYSICS_CONTROLS, DEFAULT_PHYSICS } from './constants'
+import {
+  DEFAULT_PHYSICS,
+  DEFAULT_TRACKPAD_SENSITIVITY,
+  MAX_TRACKPAD_SENSITIVITY,
+  MIN_TRACKPAD_SENSITIVITY,
+  PHYSICS_CONTROLS,
+} from './constants'
 import type { InputMode } from './uiTypes'
 
 export const GRAPH_PREFERENCES_STORAGE_KEY = 'caststar_graph_preferences_v1'
@@ -14,6 +20,7 @@ export interface GraphFiltersPreferences {
 export interface GraphPreferences {
   physicsEnabled: boolean
   inputMode: InputMode
+  trackpadSensitivity: number
   physicsSettings: NodePhysics
   filters: GraphFiltersPreferences
 }
@@ -25,6 +32,7 @@ interface StoredGraphPreferencesV1 extends GraphPreferences {
 export const DEFAULT_GRAPH_PREFERENCES: GraphPreferences = {
   physicsEnabled: true,
   inputMode: 'mouse',
+  trackpadSensitivity: DEFAULT_TRACKPAD_SENSITIVITY,
   physicsSettings: { ...DEFAULT_PHYSICS },
   filters: {
     excludeSelfAppearances: true,
@@ -42,6 +50,14 @@ function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
 
 function sanitizeInputMode(value: unknown): InputMode {
   return value === 'mouse' || value === 'trackpad' ? value : DEFAULT_GRAPH_PREFERENCES.inputMode
+}
+
+function sanitizeTrackpadSensitivity(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_GRAPH_PREFERENCES.trackpadSensitivity
+  }
+
+  return Math.min(MAX_TRACKPAD_SENSITIVITY, Math.max(MIN_TRACKPAD_SENSITIVITY, value))
 }
 
 function sanitizePhysicsSettings(value: unknown): NodePhysics {
@@ -63,6 +79,7 @@ function toStoredGraphPreferences(value: GraphPreferences): StoredGraphPreferenc
     version: GRAPH_PREFERENCES_VERSION,
     physicsEnabled: value.physicsEnabled,
     inputMode: value.inputMode,
+    trackpadSensitivity: value.trackpadSensitivity,
     physicsSettings: value.physicsSettings,
     filters: value.filters,
   }
@@ -91,6 +108,7 @@ export function readGraphPreferences(): GraphPreferences {
     return {
       physicsEnabled: sanitizeBoolean(parsed.physicsEnabled, DEFAULT_GRAPH_PREFERENCES.physicsEnabled),
       inputMode: sanitizeInputMode(parsed.inputMode),
+      trackpadSensitivity: sanitizeTrackpadSensitivity(parsed.trackpadSensitivity),
       physicsSettings: sanitizePhysicsSettings(parsed.physicsSettings),
       filters: {
         excludeSelfAppearances: sanitizeBoolean(

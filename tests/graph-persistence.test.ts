@@ -71,6 +71,7 @@ describe('graph preferences persistence', () => {
     const expected: GraphPreferences = {
       physicsEnabled: false,
       inputMode: 'trackpad',
+      trackpadSensitivity: 1.8,
       physicsSettings: {
         mass: 2.4,
         repulsion: 2.1,
@@ -103,6 +104,7 @@ describe('graph preferences persistence', () => {
         version: 1,
         physicsEnabled: true,
         inputMode: 'mouse',
+        trackpadSensitivity: 9,
         physicsSettings: {
           mass: -10,
           repulsion: 99,
@@ -131,12 +133,40 @@ describe('graph preferences persistence', () => {
     })
   })
 
+  it('clamps invalid trackpad sensitivity to allowed limits', () => {
+    const storage = createStorage({
+      [GRAPH_PREFERENCES_STORAGE_KEY]: JSON.stringify({
+        version: 1,
+        physicsEnabled: true,
+        inputMode: 'trackpad',
+        trackpadSensitivity: -3,
+        physicsSettings: {
+          mass: 1.2,
+          repulsion: 1,
+          springLength: 190,
+          springStrength: 0.009,
+          damping: 0.87,
+          clusterPull: 0.011,
+          maxSpeed: 8,
+        },
+        filters: {
+          excludeSelfAppearances: true,
+          includeCrewConnections: false,
+        },
+      }),
+    })
+    stubLocalStorage(storage)
+
+    expect(readGraphPreferences().trackpadSensitivity).toBe(0.4)
+  })
+
   it('falls back to defaults for invalid booleans and input mode', () => {
     const storage = createStorage({
       [GRAPH_PREFERENCES_STORAGE_KEY]: JSON.stringify({
         version: 1,
         physicsEnabled: 'yes',
         inputMode: 'touchscreen',
+        trackpadSensitivity: 'max',
         physicsSettings: {
           mass: 1.2,
           repulsion: 1,
@@ -157,6 +187,7 @@ describe('graph preferences persistence', () => {
     const actual = readGraphPreferences()
     expect(actual.physicsEnabled).toBe(DEFAULT_GRAPH_PREFERENCES.physicsEnabled)
     expect(actual.inputMode).toBe(DEFAULT_GRAPH_PREFERENCES.inputMode)
+    expect(actual.trackpadSensitivity).toBe(DEFAULT_GRAPH_PREFERENCES.trackpadSensitivity)
     expect(actual.filters.excludeSelfAppearances).toBe(DEFAULT_GRAPH_PREFERENCES.filters.excludeSelfAppearances)
     expect(actual.filters.includeCrewConnections).toBe(DEFAULT_GRAPH_PREFERENCES.filters.includeCrewConnections)
   })
@@ -168,6 +199,7 @@ describe('graph preferences persistence', () => {
     const preferences: GraphPreferences = {
       physicsEnabled: false,
       inputMode: 'trackpad',
+      trackpadSensitivity: 1.4,
       physicsSettings: {
         mass: 1.8,
         repulsion: 0.65,

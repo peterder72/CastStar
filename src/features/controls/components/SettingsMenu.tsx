@@ -3,17 +3,24 @@ import { createPortal } from 'react-dom'
 import Button from '../../../components/ui/Button'
 import PanelCard from '../../../components/ui/PanelCard'
 import { cn } from '../../../components/ui/cn'
-import { PHYSICS_CONTROLS } from '../../graph/constants'
+import {
+  MAX_TRACKPAD_SENSITIVITY,
+  MIN_TRACKPAD_SENSITIVITY,
+  PHYSICS_CONTROLS,
+  TRACKPAD_SENSITIVITY_STEP,
+} from '../../graph/constants'
 import type { InputMode } from '../../graph/uiTypes'
 import type { NodePhysics } from '../../../types'
 
 interface SettingsMenuProps {
   inputMode: InputMode
+  trackpadSensitivity: number
   physicsEnabled: boolean
   showPhysicsSettings: boolean
   physicsSettings: NodePhysics
   tokenConfigurable: boolean
   onInputModeChange: (mode: InputMode) => void
+  onTrackpadSensitivityChange: (value: number) => void
   onPhysicsEnabledChange: (enabled: boolean) => void
   onClearAllGraph: () => void
   onTogglePhysicsSettings: () => void
@@ -24,6 +31,9 @@ interface SettingsMenuProps {
 
 const POPOVER_ID = 'settings-menu-popover'
 const MOBILE_SHEET_CLOSE_THRESHOLD = 110
+const DESKTOP_PANEL_TOP_OFFSET = 8
+const DESKTOP_PANEL_MIN_RIGHT = 12
+const DESKTOP_POPOVER_CLOSE_DURATION_MS = 140
 
 function inputModeButtonClass(active: boolean, withLeftBorder = false): string {
   return cn(
@@ -37,11 +47,13 @@ function inputModeButtonClass(active: boolean, withLeftBorder = false): string {
 
 function SettingsMenu({
   inputMode,
+  trackpadSensitivity,
   physicsEnabled,
   showPhysicsSettings,
   physicsSettings,
   tokenConfigurable,
   onInputModeChange,
+  onTrackpadSensitivityChange,
   onPhysicsEnabledChange,
   onClearAllGraph,
   onTogglePhysicsSettings,
@@ -50,18 +62,27 @@ function SettingsMenu({
   onOpenTokenSettings,
 }: SettingsMenuProps) {
   const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [panelTop, setPanelTop] = useState<number>(0)
   const [panelRight, setPanelRight] = useState<number>(12)
   const [mobileDragOffset, setMobileDragOffset] = useState(0)
   const [mobileDragging, setMobileDragging] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const closeTimerRef = useRef<number | null>(null)
   const isMobileRef = useRef(false)
   const mobileDragStateRef = useRef<{ active: boolean; pointerId: number | null; startY: number }>({
     active: false,
     pointerId: null,
     startY: 0,
   })
+
+  const clearCloseTimer = useCallback((): void => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }, [])
 
   const resetMobileSheetState = useCallback((): void => {
     mobileDragStateRef.current = { active: false, pointerId: null, startY: 0 }
@@ -70,9 +91,29 @@ function SettingsMenu({
   }, [])
 
   const closeMenu = useCallback((): void => {
-    setOpen(false)
     resetMobileSheetState()
-  }, [resetMobileSheetState])
+
+    if (isMobileRef.current) {
+      clearCloseTimer()
+      setClosing(false)
+      setOpen(false)
+      return
+    }
+
+    setClosing(true)
+    clearCloseTimer()
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+      closeTimerRef.current = null
+    }, DESKTOP_POPOVER_CLOSE_DURATION_MS)
+  }, [clearCloseTimer, resetMobileSheetState])
+
+  useEffect(() => {
+    return () => {
+      clearCloseTimer()
+    }
+  }, [clearCloseTimer])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -101,21 +142,35 @@ function SettingsMenu({
     }
   }, [resetMobileSheetState])
 
+  const computeDesktopPanelPosition = useCallback((): { top: number; right: number } | null => {
+    const trigger = triggerRef.current
+
+    if (!trigger) {
+      return null
+    }
+
+    const rect = trigger.getBoundingClientRect()
+
+    return {
+      top: rect.bottom + DESKTOP_PANEL_TOP_OFFSET,
+      right: Math.max(DESKTOP_PANEL_MIN_RIGHT, window.innerWidth - rect.right),
+    }
+  }, [])
+
   const updateDesktopPanelPosition = useCallback(() => {
     if (isMobile) {
       return
     }
 
-    const trigger = triggerRef.current
+    const position = computeDesktopPanelPosition()
 
-    if (!trigger) {
+    if (!position) {
       return
     }
 
-    const rect = trigger.getBoundingClientRect()
-    setPanelTop(rect.bottom + 8)
-    setPanelRight(Math.max(12, window.innerWidth - rect.right))
-  }, [isMobile])
+    setPanelTop(position.top)
+    setPanelRight(position.right)
+  }, [computeDesktopPanelPosition, isMobile])
 
   useEffect(() => {
     if (!open) {
@@ -207,6 +262,31 @@ function SettingsMenu({
 
   const portalTarget = typeof document !== 'undefined' ? document.body : null
 
+  const openMenu = useCallback((): void => {
+    clearCloseTimer()
+    setClosing(false)
+
+    if (!isMobileRef.current) {
+      const position = computeDesktopPanelPosition()
+
+      if (position) {
+        setPanelTop(position.top)
+        setPanelRight(position.right)
+      }
+    }
+
+    setOpen(true)
+  }, [clearCloseTimer, computeDesktopPanelPosition])
+
+  const handleToggleOpen = useCallback((): void => {
+    if (open && !closing) {
+      closeMenu()
+      return
+    }
+
+    openMenu()
+  }, [closeMenu, closing, open, openMenu])
+
   const panel =
     open && portalTarget
       ? createPortal(
@@ -226,7 +306,10 @@ function SettingsMenu({
                 'z-[110] overflow-y-auto rounded-2xl border border-slate-500/55 bg-slate-950/92 p-2.5 text-slate-100 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl motion-reduce:animate-none',
                 isMobile
                   ? 'fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] top-[max(4.25rem,calc(env(safe-area-inset-top)+0.5rem))] origin-bottom animate-[settings-sheet-in_220ms_cubic-bezier(0.16,1,0.3,1)]'
-                  : 'fixed w-[min(24rem,calc(100vw-1.25rem))] max-h-[calc(100dvh-1rem)] origin-top-right animate-[settings-popover-in_140ms_ease-out]',
+                  : cn(
+                      'fixed w-[min(24rem,calc(100vw-1.25rem))] max-h-[calc(100dvh-1rem)] origin-top-right',
+                      closing ? 'animate-[settings-popover-out_140ms_ease-in]' : 'animate-[settings-popover-in_140ms_ease-out]',
+                    ),
               )}
               style={
                 isMobile
@@ -290,6 +373,22 @@ function SettingsMenu({
                     Trackpad
                   </button>
                 </div>
+
+                <label className="mt-3 flex flex-col gap-1.5">
+                  <span className="flex items-center justify-between gap-2 text-[0.73rem] text-slate-300">
+                    Trackpad Sensitivity
+                    <b className="font-mono text-[0.71rem] text-cyan-100">{trackpadSensitivity.toFixed(1)}x</b>
+                  </span>
+                  <input
+                    type="range"
+                    min={MIN_TRACKPAD_SENSITIVITY}
+                    max={MAX_TRACKPAD_SENSITIVITY}
+                    step={TRACKPAD_SENSITIVITY_STEP}
+                    value={trackpadSensitivity}
+                    onChange={(event) => onTrackpadSensitivityChange(Number.parseFloat(event.target.value))}
+                    className="w-full accent-cyan-300"
+                  />
+                </label>
               </PanelCard>
 
               <PanelCard className="bg-slate-950/82">
@@ -351,7 +450,7 @@ function SettingsMenu({
                   Right-click a bubble for hide/prune/delete/manual-select actions.
                 </p>
                 <p className="mt-1 px-0.5 text-[0.78rem] leading-snug text-slate-300">
-                  Touch: one finger pans and two fingers pinch-zoom. Trackpad mode: scroll to zoom, drag to pan.
+                  Touch: one finger pans and two fingers pinch-zoom. Trackpad mode: scroll to pan and pinch to zoom. Mouse mode: drag to pan and wheel to zoom.
                 </p>
               </PanelCard>
             </div>
@@ -366,15 +465,7 @@ function SettingsMenu({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() =>
-            setOpen((current) => {
-              if (current) {
-                resetMobileSheetState()
-              }
-
-              return !current
-            })
-          }
+          onClick={handleToggleOpen}
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-500/70 bg-slate-950/78 text-slate-200 shadow-[0_12px_28px_rgba(0,0,0,0.4)] backdrop-blur-md transition hover:border-cyan-300/65 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/55 sm:h-11 sm:w-11"
           aria-label="Open settings"
           aria-expanded={open}

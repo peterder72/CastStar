@@ -17,7 +17,14 @@ const MAX_CAMERA_SCALE = 2.4
 interface UseGraphGesturesParams {
   viewportRef: RefObject<HTMLDivElement | null>
   inputMode: InputMode
+  trackpadSensitivity: number
   setCamera: Dispatch<SetStateAction<Camera>>
+}
+
+interface SafariGestureEventLike extends Event {
+  clientX: number
+  clientY: number
+  scale: number
 }
 
 function touchMidpoint(left: Point, right: Point): Point {
@@ -31,7 +38,7 @@ function touchDistance(left: Point, right: Point): number {
   return Math.hypot(right.x - left.x, right.y - left.y)
 }
 
-export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraphGesturesParams) {
+export function useGraphGestures({ viewportRef, inputMode, trackpadSensitivity, setCamera }: UseGraphGesturesParams) {
   const panStateRef = useRef({
     active: false,
     pointerId: -1,
@@ -60,6 +67,12 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
   const wheelFrameRef = useRef<number | null>(null)
   const wheelIdleTimerRef = useRef<number | null>(null)
   const wheelActiveRef = useRef(false)
+  const safariGestureRef = useRef({
+    active: false,
+    centerX: 0,
+    centerY: 0,
+    scale: 1,
+  })
 
   const [isPanning, setIsPanning] = useState(false)
   const [isWheeling, setIsWheeling] = useState(false)
@@ -121,6 +134,90 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
       observer.disconnect()
     }
   }, [setCamera, viewportRef])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+
+    if (!viewport) {
+      return
+    }
+
+    const gestureState = safariGestureRef.current
+    const toLocalPoint = (clientX: number, clientY: number): Point => {
+      const bounds = viewport.getBoundingClientRect()
+
+      return {
+        x: clientX - bounds.left,
+        y: clientY - bounds.top,
+      }
+    }
+
+    const handleGestureStart = (event: Event): void => {
+      const gestureEvent = event as SafariGestureEventLike
+      event.preventDefault()
+
+      const point = toLocalPoint(gestureEvent.clientX, gestureEvent.clientY)
+      gestureState.active = true
+      gestureState.centerX = point.x
+      gestureState.centerY = point.y
+      gestureState.scale = gestureEvent.scale > 0 ? gestureEvent.scale : 1
+    }
+
+    const handleGestureChange = (event: Event): void => {
+      const gestureEvent = event as SafariGestureEventLike
+      event.preventDefault()
+
+      if (!gestureState.active) {
+        handleGestureStart(event)
+      }
+
+      const point = toLocalPoint(gestureEvent.clientX, gestureEvent.clientY)
+      const previousScale = gestureState.scale > 0 ? gestureState.scale : 1
+      const nextScale = gestureEvent.scale > 0 ? gestureEvent.scale : previousScale
+      const zoomFactor = nextScale / previousScale
+
+      gestureState.centerX = point.x
+      gestureState.centerY = point.y
+      gestureState.scale = nextScale
+
+      if (inputMode !== 'trackpad' || zoomFactor === 1) {
+        return
+      }
+
+      const anchorX = point.x
+      const anchorY = point.y
+
+      setCamera((current) => {
+        const clampedScale = Math.max(MIN_CAMERA_SCALE, Math.min(MAX_CAMERA_SCALE, current.scale * zoomFactor))
+        const worldPointX = (anchorX - current.x) / current.scale
+        const worldPointY = (anchorY - current.y) / current.scale
+
+        return {
+          scale: clampedScale,
+          x: anchorX - worldPointX * clampedScale,
+          y: anchorY - worldPointY * clampedScale,
+        }
+      })
+    }
+
+    const handleGestureEnd = (event: Event): void => {
+      event.preventDefault()
+      gestureState.active = false
+      gestureState.scale = 1
+    }
+
+    viewport.addEventListener('gesturestart', handleGestureStart, { passive: false })
+    viewport.addEventListener('gesturechange', handleGestureChange, { passive: false })
+    viewport.addEventListener('gestureend', handleGestureEnd, { passive: false })
+
+    return () => {
+      viewport.removeEventListener('gesturestart', handleGestureStart)
+      viewport.removeEventListener('gesturechange', handleGestureChange)
+      viewport.removeEventListener('gestureend', handleGestureEnd)
+      gestureState.active = false
+      gestureState.scale = 1
+    }
+  }, [inputMode, setCamera, viewportRef])
 
   const flushPanDelta = useCallback((): void => {
     const pending = panDeltaRef.current
@@ -225,6 +322,10 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
         return
       }
 
+      if (inputMode === 'trackpad') {
+        return
+      }
+
       panStateRef.current = {
         active: true,
         pointerId: event.pointerId,
@@ -237,7 +338,7 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
       event.currentTarget.setPointerCapture(event.pointerId)
       setIsPanning(true)
     },
-    [],
+    [inputMode],
   )
 
   const handlePointerMove = useCallback(
@@ -433,6 +534,10 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
         return
       }
 
+      if (inputMode === 'trackpad' && safariGestureRef.current.active && (event.ctrlKey || event.metaKey)) {
+        return
+      }
+
       const bounds = viewport.getBoundingClientRect()
       const localX = event.clientX - bounds.left
       const localY = event.clientY - bounds.top
@@ -500,15 +605,17 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
       }, 140)
 
       const pending = wheelDeltaRef.current
-      const zoomInput = inputMode === 'trackpad' || event.ctrlKey || event.metaKey
+      const pinchZoomInput = event.ctrlKey || event.metaKey
+      const zoomInput = inputMode === 'mouse' ? true : pinchZoomInput
 
       if (zoomInput) {
         pending.zoomDelta += event.deltaY
         pending.localX = localX
         pending.localY = localY
       } else {
-        pending.panX += event.deltaX
-        pending.panY += event.deltaY
+        const panMultiplier = inputMode === 'trackpad' ? trackpadSensitivity : 1
+        pending.panX += event.deltaX * panMultiplier
+        pending.panY += event.deltaY * panMultiplier
       }
 
       if (wheelFrameRef.current === null) {
@@ -518,7 +625,7 @@ export function useGraphGestures({ viewportRef, inputMode, setCamera }: UseGraph
         })
       }
     },
-    [inputMode, setCamera, viewportRef],
+    [inputMode, setCamera, trackpadSensitivity, viewportRef],
   )
 
   useEffect(() => {

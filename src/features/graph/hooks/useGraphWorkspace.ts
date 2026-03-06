@@ -24,6 +24,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, scale: 1 })
   const [physicsEnabled, setPhysicsEnabled] = useState(initialPreferences.physicsEnabled)
   const [inputMode, setInputMode] = useState<InputMode>(initialPreferences.inputMode)
+  const [trackpadSensitivity, setTrackpadSensitivity] = useState(initialPreferences.trackpadSensitivity)
   const [physicsSettings, setPhysicsSettings] = useState<NodePhysics>({ ...initialPreferences.physicsSettings })
   const [showPhysicsSettings, setShowPhysicsSettings] = useState(false)
 
@@ -50,6 +51,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
     const nextPreferences = {
       physicsEnabled,
       inputMode,
+      trackpadSensitivity,
       physicsSettings,
       filters: {
         excludeSelfAppearances: data.excludeSelfAppearances,
@@ -72,7 +74,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
         persistTimerRef.current = null
       }
     }
-  }, [data.excludeSelfAppearances, data.includeCrewConnections, inputMode, physicsEnabled, physicsSettings])
+  }, [data.excludeSelfAppearances, data.includeCrewConnections, inputMode, physicsEnabled, physicsSettings, trackpadSensitivity])
 
   const search = useGraphSearch({
     hiddenEntityKeys: data.hiddenEntityKeys,
@@ -84,6 +86,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
   const gestures = useGraphGestures({
     viewportRef,
     inputMode,
+    trackpadSensitivity,
     setCamera,
   })
 
@@ -161,6 +164,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
     physicsEnabled,
     isWheeling: gestures.isWheeling,
     inputMode,
+    trackpadSensitivity,
     physicsSettings,
     showPhysicsSettings,
     excludeSelfAppearances: data.excludeSelfAppearances,
@@ -177,6 +181,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
     submitSearch: search.submitSearch,
     chooseSearchResult: search.chooseSearchResult,
     setInputMode,
+    setTrackpadSensitivity,
     setPhysicsEnabled,
     setExcludeSelfAppearances: data.setExcludeSelfAppearances,
     setIncludeCrewConnections: data.setIncludeCrewConnections,
