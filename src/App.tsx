@@ -68,6 +68,7 @@ function App() {
         physicsEnabled={workspace.physicsEnabled}
         showPhysicsSettings={workspace.showPhysicsSettings}
         excludeSelfAppearances={workspace.excludeSelfAppearances}
+        includeCrewConnections={workspace.includeCrewConnections}
         hiddenEntityList={workspace.hiddenEntityList}
         physicsSettings={workspace.physicsSettings}
         errorMessage={workspace.errorMessage}
@@ -82,6 +83,7 @@ function App() {
         onClearAllGraph={workspace.clearAllGraph}
         onTogglePhysicsSettings={workspace.togglePhysicsSettings}
         onExcludeSelfAppearancesChange={workspace.setExcludeSelfAppearances}
+        onIncludeCrewConnectionsChange={workspace.setIncludeCrewConnections}
         onClearHiddenEntities={workspace.clearHiddenEntities}
         onUnhideEntity={workspace.unhideEntity}
         onPhysicsSettingChange={workspace.updatePhysicsSetting}
@@ -117,6 +119,9 @@ function App() {
         onHideNode={workspace.hideNodeFromBoard}
         onPruneLeaves={workspace.pruneNodeLeaves}
         onDeleteNode={workspace.deleteNodeFromBoard}
+        onLoadRelatedSelectionOptions={workspace.loadRelatedSelectionOptions}
+        getConnectedNodeKeyList={workspace.getConnectedNodeKeyList}
+        onAddSelectedRelations={workspace.addSelectedRelations}
       />
 
       <div className="pointer-events-none absolute bottom-2.5 right-2.5 z-[80] flex items-end gap-2 sm:bottom-3 sm:right-3">

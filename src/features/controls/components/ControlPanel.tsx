@@ -19,6 +19,7 @@ interface ControlPanelProps {
   physicsEnabled: boolean
   showPhysicsSettings: boolean
   excludeSelfAppearances: boolean
+  includeCrewConnections: boolean
   hiddenEntityList: HiddenEntity[]
   physicsSettings: NodePhysics
   errorMessage: string | null
@@ -33,6 +34,7 @@ interface ControlPanelProps {
   onClearAllGraph: () => void
   onTogglePhysicsSettings: () => void
   onExcludeSelfAppearancesChange: (enabled: boolean) => void
+  onIncludeCrewConnectionsChange: (enabled: boolean) => void
   onClearHiddenEntities: () => void
   onUnhideEntity: (key: string) => void
   onPhysicsSettingChange: (key: keyof NodePhysics, value: number) => void
@@ -63,6 +65,7 @@ function ControlPanel({
   physicsEnabled,
   showPhysicsSettings,
   excludeSelfAppearances,
+  includeCrewConnections,
   hiddenEntityList,
   physicsSettings,
   errorMessage,
@@ -77,6 +80,7 @@ function ControlPanel({
   onClearAllGraph,
   onTogglePhysicsSettings,
   onExcludeSelfAppearancesChange,
+  onIncludeCrewConnectionsChange,
   onClearHiddenEntities,
   onUnhideEntity,
   onPhysicsSettingChange,
@@ -211,6 +215,16 @@ function ControlPanel({
               Exclude self-appearances ("Self", "Himself", "Herself", talk-show style entries)
             </label>
 
+            <label className="mt-2 flex items-start gap-2 text-[0.8rem] text-slate-300">
+              <input
+                type="checkbox"
+                checked={includeCrewConnections}
+                onChange={(event) => onIncludeCrewConnectionsChange(event.target.checked)}
+                className="mt-0.5 accent-cyan-300"
+              />
+              Include crew connections (Directing & Writing)
+            </label>
+
             <div className="mt-2.5">
               <div className="flex items-center justify-between gap-2.5">
                 <small className="text-slate-300">Hidden Entities ({hiddenEntityList.length})</small>
@@ -285,7 +299,7 @@ function ControlPanel({
           <p className={cn(hintTextClass, 'mt-2.5')}>
             Click a bubble to load 10 connected results; click again for the next 10.
           </p>
-          <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete actions.</p>
+          <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete/manual-select actions.</p>
           <p className={cn(hintTextClass, 'mt-1')}>
             Touch: one finger pans and two fingers pinch-zoom. Trackpad mode: scroll to zoom, drag to pan.
           </p>

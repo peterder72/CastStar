@@ -4,6 +4,7 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 const TMDB_IMAGE_URL = 'https://image.tmdb.org/t/p/w185'
 const DEMO_CHILD_COUNT = 10
 const DEMO_KIND_SEQUENCE: NodeKind[] = ['person', 'movie', 'tv']
+const RELEVANT_CREW_DEPARTMENTS = new Set(['Directing', 'Writing'])
 
 const LOCAL_STORAGE_TOKEN_KEY = 'caststar_tmdb_token'
 
@@ -81,6 +82,7 @@ interface MultiSearchItem {
 
 interface CreditsResponse {
   cast: CastPerson[]
+  crew: CrewPerson[]
 }
 
 interface CastPerson {
@@ -92,8 +94,18 @@ interface CastPerson {
   order?: number
 }
 
+interface CrewPerson {
+  id: number
+  name: string
+  profile_path: string | null
+  known_for_department?: string
+  department?: string
+  job?: string
+}
+
 interface CombinedCreditsResponse {
   cast: CombinedCredit[]
+  crew: CombinedCredit[]
 }
 
 interface CombinedCredit {
@@ -105,6 +117,8 @@ interface CombinedCredit {
   release_date?: string
   first_air_date?: string
   character?: string
+  department?: string
+  job?: string
   popularity?: number
   vote_count?: number
 }
@@ -114,6 +128,7 @@ interface RankedEntity {
   popularity: number
   dateScore: number
   voteCount: number
+  creditCategoryPriority: number
 }
 
 
@@ -211,6 +226,19 @@ function yearFromDate(value?: string): string | undefined {
   return value.slice(0, 4)
 }
 
+function isRelevantCrewDepartment(department?: string): boolean {
+  if (!department) {
+    return false
+  }
+
+  return RELEVANT_CREW_DEPARTMENTS.has(department)
+}
+
+function formatCrewRole(job?: string, department?: string): string | undefined {
+  const roleParts = [job, department].filter((item): item is string => Boolean(item))
+  return roleParts.join(' • ') || undefined
+}
+
 function toMediaEntity(
   kind: Exclude<NodeKind, 'person'>,
   id: number,
@@ -218,6 +246,8 @@ function toMediaEntity(
   imagePath: string | null,
   date?: string,
   role?: string,
+  creditCategory?: 'cast' | 'crew',
+  creditDepartment?: string,
 ): DiscoverEntity {
   const year = yearFromDate(date)
   const subtitleParts = [year, role].filter((item): item is string => Boolean(item))
@@ -228,16 +258,35 @@ function toMediaEntity(
     title,
     subtitle: subtitleParts.join(' • ') || undefined,
     creditRole: role || undefined,
+    creditCategory,
+    creditDepartment,
     imagePath,
   }
 }
 
-function toPersonEntity(raw: Pick<CastPerson, 'id' | 'name' | 'profile_path' | 'known_for_department' | 'character'>): DiscoverEntity {
+function toCastPersonEntity(raw: Pick<CastPerson, 'id' | 'name' | 'profile_path' | 'known_for_department' | 'character'>): DiscoverEntity {
   return {
     kind: 'person',
     tmdbId: raw.id,
     title: raw.name,
     subtitle: raw.character ?? raw.known_for_department ?? 'Actor',
+    creditRole: raw.character ?? undefined,
+    creditCategory: 'cast',
+    imagePath: raw.profile_path ?? null,
+  }
+}
+
+function toCrewPersonEntity(raw: Pick<CrewPerson, 'id' | 'name' | 'profile_path' | 'known_for_department' | 'department' | 'job'>): DiscoverEntity {
+  const role = formatCrewRole(raw.job, raw.department) ?? raw.known_for_department ?? 'Crew'
+
+  return {
+    kind: 'person',
+    tmdbId: raw.id,
+    title: raw.name,
+    subtitle: role,
+    creditRole: raw.job ?? raw.department ?? undefined,
+    creditCategory: 'crew',
+    creditDepartment: raw.department,
     imagePath: raw.profile_path ?? null,
   }
 }
@@ -264,7 +313,13 @@ function toMultiResultEntity(item: MultiSearchItem): DiscoverEntity | null {
   return null
 }
 
-function toRankedMediaEntity(item: CombinedCredit): RankedEntity | null {
+function toRankedMediaEntity(item: CombinedCredit, creditCategory: 'cast' | 'crew'): RankedEntity | null {
+  if (creditCategory === 'crew' && !isRelevantCrewDepartment(item.department)) {
+    return null
+  }
+
+  const role = creditCategory === 'crew' ? formatCrewRole(item.job, item.department) : item.character
+
   if (item.media_type === 'movie' && item.title) {
     return {
       entity: toMediaEntity(
@@ -273,20 +328,33 @@ function toRankedMediaEntity(item: CombinedCredit): RankedEntity | null {
         item.title,
         item.poster_path ?? null,
         item.release_date,
-        item.character,
+        role,
+        creditCategory,
+        item.department,
       ),
       popularity: item.popularity ?? 0,
       dateScore: Date.parse(item.release_date ?? '') || 0,
       voteCount: item.vote_count ?? 0,
+      creditCategoryPriority: creditCategory === 'cast' ? 1 : 0,
     }
   }
 
   if (item.media_type === 'tv' && item.name) {
     return {
-      entity: toMediaEntity('tv', item.id, item.name, item.poster_path ?? null, item.first_air_date, item.character),
+      entity: toMediaEntity(
+        'tv',
+        item.id,
+        item.name,
+        item.poster_path ?? null,
+        item.first_air_date,
+        role,
+        creditCategory,
+        item.department,
+      ),
       popularity: item.popularity ?? 0,
       dateScore: Date.parse(item.first_air_date ?? '') || 0,
       voteCount: item.vote_count ?? 0,
+      creditCategoryPriority: creditCategory === 'cast' ? 1 : 0,
     }
   }
 
@@ -333,25 +401,93 @@ export async function searchMulti(query: string): Promise<DiscoverEntity[]> {
 async function fetchMovieCast(movieId: number): Promise<DiscoverEntity[]> {
   const data = await tmdbFetch<CreditsResponse>(`/movie/${movieId}/credits`, { language: 'en-US' })
 
-  const ranked = [...data.cast].sort((left, right) => {
+  const rankedCast = [...data.cast].sort((left, right) => {
     const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER
     const rightOrder = right.order ?? Number.MAX_SAFE_INTEGER
     return leftOrder - rightOrder
   })
 
-  return uniqueEntities(ranked.map(toPersonEntity))
+  const rankedCrew = data.crew
+    .filter((person) => isRelevantCrewDepartment(person.department))
+    .sort((left, right) => {
+      const leftDepartment = left.department ?? ''
+      const rightDepartment = right.department ?? ''
+      if (leftDepartment !== rightDepartment) {
+        return leftDepartment.localeCompare(rightDepartment)
+      }
+
+      const leftJob = left.job ?? ''
+      const rightJob = right.job ?? ''
+      if (leftJob !== rightJob) {
+        return leftJob.localeCompare(rightJob)
+      }
+
+      return left.name.localeCompare(right.name)
+    })
+
+  const deduped = new Map<string, DiscoverEntity>()
+
+  for (const person of rankedCast) {
+    const entity = toCastPersonEntity(person)
+    deduped.set(entityKey(entity), entity)
+  }
+
+  for (const person of rankedCrew) {
+    const entity = toCrewPersonEntity(person)
+    const key = entityKey(entity)
+
+    if (!deduped.has(key)) {
+      deduped.set(key, entity)
+    }
+  }
+
+  return Array.from(deduped.values())
 }
 
 async function fetchTvCast(tvId: number): Promise<DiscoverEntity[]> {
   const data = await tmdbFetch<CreditsResponse>(`/tv/${tvId}/credits`, { language: 'en-US' })
 
-  const ranked = [...data.cast].sort((left, right) => {
+  const rankedCast = [...data.cast].sort((left, right) => {
     const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER
     const rightOrder = right.order ?? Number.MAX_SAFE_INTEGER
     return leftOrder - rightOrder
   })
 
-  return uniqueEntities(ranked.map(toPersonEntity))
+  const rankedCrew = data.crew
+    .filter((person) => isRelevantCrewDepartment(person.department))
+    .sort((left, right) => {
+      const leftDepartment = left.department ?? ''
+      const rightDepartment = right.department ?? ''
+      if (leftDepartment !== rightDepartment) {
+        return leftDepartment.localeCompare(rightDepartment)
+      }
+
+      const leftJob = left.job ?? ''
+      const rightJob = right.job ?? ''
+      if (leftJob !== rightJob) {
+        return leftJob.localeCompare(rightJob)
+      }
+
+      return left.name.localeCompare(right.name)
+    })
+
+  const deduped = new Map<string, DiscoverEntity>()
+
+  for (const person of rankedCast) {
+    const entity = toCastPersonEntity(person)
+    deduped.set(entityKey(entity), entity)
+  }
+
+  for (const person of rankedCrew) {
+    const entity = toCrewPersonEntity(person)
+    const key = entityKey(entity)
+
+    if (!deduped.has(key)) {
+      deduped.set(key, entity)
+    }
+  }
+
+  return Array.from(deduped.values())
 }
 
 async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
@@ -362,7 +498,38 @@ async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
   const rankedMap = new Map<string, RankedEntity>()
 
   for (const item of data.cast) {
-    const rankedEntity = toRankedMediaEntity(item)
+    const rankedEntity = toRankedMediaEntity(item, 'cast')
+ 
+    if (!rankedEntity) {
+      continue
+    }
+
+    const key = entityKey(rankedEntity.entity)
+    const existing = rankedMap.get(key)
+
+    if (!existing) {
+      rankedMap.set(key, rankedEntity)
+      continue
+    }
+
+    const candidateWins =
+      rankedEntity.popularity > existing.popularity ||
+      (rankedEntity.popularity === existing.popularity && rankedEntity.voteCount > existing.voteCount) ||
+      (rankedEntity.popularity === existing.popularity &&
+        rankedEntity.voteCount === existing.voteCount &&
+        rankedEntity.dateScore > existing.dateScore) ||
+      (rankedEntity.popularity === existing.popularity &&
+        rankedEntity.voteCount === existing.voteCount &&
+        rankedEntity.dateScore === existing.dateScore &&
+        rankedEntity.creditCategoryPriority > existing.creditCategoryPriority)
+
+    if (candidateWins) {
+      rankedMap.set(key, rankedEntity)
+    }
+  }
+
+  for (const item of data.crew) {
+    const rankedEntity = toRankedMediaEntity(item, 'crew')
 
     if (!rankedEntity) {
       continue
@@ -378,7 +545,14 @@ async function fetchPersonTitles(personId: number): Promise<DiscoverEntity[]> {
 
     const candidateWins =
       rankedEntity.popularity > existing.popularity ||
-      (rankedEntity.popularity === existing.popularity && rankedEntity.voteCount > existing.voteCount)
+      (rankedEntity.popularity === existing.popularity && rankedEntity.voteCount > existing.voteCount) ||
+      (rankedEntity.popularity === existing.popularity &&
+        rankedEntity.voteCount === existing.voteCount &&
+        rankedEntity.dateScore > existing.dateScore) ||
+      (rankedEntity.popularity === existing.popularity &&
+        rankedEntity.voteCount === existing.voteCount &&
+        rankedEntity.dateScore === existing.dateScore &&
+        rankedEntity.creditCategoryPriority > existing.creditCategoryPriority)
 
     if (candidateWins) {
       rankedMap.set(key, rankedEntity)

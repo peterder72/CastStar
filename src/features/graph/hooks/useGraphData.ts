@@ -44,6 +44,8 @@ interface UseGraphDataResult {
   setErrorMessage: Dispatch<SetStateAction<string | null>>
   excludeSelfAppearances: boolean
   setExcludeSelfAppearances: Dispatch<SetStateAction<boolean>>
+  includeCrewConnections: boolean
+  setIncludeCrewConnections: Dispatch<SetStateAction<boolean>>
   hiddenEntityList: HiddenEntity[]
   hiddenEntityKeys: string[]
   contextNode: GraphNode | null
@@ -55,11 +57,21 @@ interface UseGraphDataResult {
   hideNodeFromBoard: (nodeKey: string) => void
   pruneNodeLeaves: (nodeKey: string) => void
   deleteNodeFromBoard: (nodeKey: string) => void
+  loadRelatedSelectionOptions: (nodeKey: string) => Promise<DiscoverEntity[]>
+  getConnectedNodeKeyList: (nodeKey: string) => string[]
+  addSelectedRelations: (nodeKey: string, relationKeys: string[]) => Promise<AddSelectedRelationsResult>
   handleNodeClick: (nodeKey: string) => void
   getRemainingRelatedCount: (node: GraphNode) => number
   clearCanvasSelection: () => void
   openNodeContextMenu: (nodeKey: string, x: number, y: number) => void
   dismissContextMenu: () => void
+}
+
+interface AddSelectedRelationsResult {
+  added: number
+  alreadyConnected: number
+  hidden: number
+  missing: number
 }
 
 export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): UseGraphDataResult {
@@ -68,6 +80,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [excludeSelfAppearances, setExcludeSelfAppearancesState] = useState(true)
+  const [includeCrewConnections, setIncludeCrewConnectionsState] = useState(false)
   const [hiddenEntities, setHiddenEntities] = useState<Record<string, HiddenEntity>>({})
   const [contextMenu, setContextMenu] = useState<NodeContextMenuState | null>(null)
 
@@ -78,6 +91,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
   const relatedCacheRef = useRef<Record<string, DiscoverEntity[]>>({})
   const replayQueueRef = useRef<Record<string, string[]>>({})
   const excludeSelfAppearancesRef = useRef(excludeSelfAppearances)
+  const includeCrewConnectionsRef = useRef(includeCrewConnections)
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -96,6 +110,10 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     excludeSelfAppearancesRef.current = excludeSelfAppearances
   }, [excludeSelfAppearances])
 
+  useEffect(() => {
+    includeCrewConnectionsRef.current = includeCrewConnections
+  }, [includeCrewConnections])
+
   const setExcludeSelfAppearances = useCallback<Dispatch<SetStateAction<boolean>>>((value) => {
     const previousValue = excludeSelfAppearancesRef.current
     const nextValue = typeof value === 'function' ? (value as (previous: boolean) => boolean)(previousValue) : value
@@ -113,6 +131,40 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
 
     for (const [key, node] of Object.entries(currentNodes)) {
       if (node.kind === 'person' && node.expansionCursor !== 0) {
+        nextNodes[key] = {
+          ...node,
+          expansionCursor: 0,
+        }
+        changed = true
+        continue
+      }
+
+      nextNodes[key] = node
+    }
+
+    if (changed) {
+      nodesRef.current = nextNodes
+      setNodes(nextNodes)
+    }
+  }, [])
+
+  const setIncludeCrewConnections = useCallback<Dispatch<SetStateAction<boolean>>>((value) => {
+    const previousValue = includeCrewConnectionsRef.current
+    const nextValue = typeof value === 'function' ? (value as (previous: boolean) => boolean)(previousValue) : value
+
+    if (nextValue === previousValue) {
+      return
+    }
+
+    includeCrewConnectionsRef.current = nextValue
+    setIncludeCrewConnectionsState(nextValue)
+
+    const currentNodes = nodesRef.current
+    let changed = false
+    const nextNodes: Record<string, GraphNode> = {}
+
+    for (const [key, node] of Object.entries(currentNodes)) {
+      if (node.expansionCursor !== 0) {
         nextNodes[key] = {
           ...node,
           expansionCursor: 0,
@@ -188,9 +240,13 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         return true
       }
 
+      if (!includeCrewConnections && candidate.creditCategory === 'crew') {
+        return true
+      }
+
       return false
     },
-    [excludeSelfAppearances],
+    [excludeSelfAppearances, includeCrewConnections],
   )
 
   const ensureNode = useCallback(
@@ -441,6 +497,27 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     [resolvePosition],
   )
 
+  const getOrFetchRelatedEntities = useCallback(
+    async (nodeKey: string): Promise<DiscoverEntity[]> => {
+      const cached = relatedCacheRef.current[nodeKey]
+
+      if (cached) {
+        return cached
+      }
+
+      const node = nodesRef.current[nodeKey]
+
+      if (!node) {
+        return []
+      }
+
+      const related = await fetchRelatedEntities(node)
+      relatedCacheRef.current[nodeKey] = related
+      return related
+    },
+    [],
+  )
+
   const addSearchEntity = useCallback(
     (entity: DiscoverEntity): boolean => {
       const center = viewportCenterWorld()
@@ -572,12 +649,7 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       setErrorMessage(null)
 
       try {
-        let related = relatedCacheRef.current[nodeKey]
-
-        if (!related) {
-          related = await fetchRelatedEntities(node)
-          relatedCacheRef.current[nodeKey] = related
-        }
+        const related = await getOrFetchRelatedEntities(nodeKey)
 
         const latestNode = nodesRef.current[nodeKey]
 
@@ -686,7 +758,120 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
         setErrorMessage(message)
       }
     },
-    [ensureEdge, ensureNode, expansionPosition, getConnectedNodeKeys, patchNode, shouldSkipRelatedEntity],
+    [ensureEdge, ensureNode, expansionPosition, getConnectedNodeKeys, getOrFetchRelatedEntities, patchNode, shouldSkipRelatedEntity],
+  )
+
+  const loadRelatedSelectionOptions = useCallback(
+    async (nodeKey: string): Promise<DiscoverEntity[]> => {
+      try {
+        const related = await getOrFetchRelatedEntities(nodeKey)
+        const node = nodesRef.current[nodeKey]
+
+        if (!node) {
+          return []
+        }
+
+        const filteredRelated = related.filter((candidate) => !shouldSkipRelatedEntity(node, candidate))
+
+        patchNode(nodeKey, {
+          totalRelated: related.length,
+        })
+
+        return filteredRelated
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
+        setErrorMessage(message)
+        throw error
+      }
+    },
+    [getOrFetchRelatedEntities, patchNode, shouldSkipRelatedEntity],
+  )
+
+  const getConnectedNodeKeyList = useCallback(
+    (nodeKey: string): string[] => {
+      return Array.from(getConnectedNodeKeys(nodeKey))
+    },
+    [getConnectedNodeKeys],
+  )
+
+  const addSelectedRelations = useCallback(
+    async (nodeKey: string, relationKeys: string[]): Promise<AddSelectedRelationsResult> => {
+      const parentNode = nodesRef.current[nodeKey]
+
+      if (!parentNode || relationKeys.length === 0) {
+        return {
+          added: 0,
+          alreadyConnected: 0,
+          hidden: 0,
+          missing: 0,
+        }
+      }
+
+      let related: DiscoverEntity[]
+
+      try {
+        related = await getOrFetchRelatedEntities(nodeKey)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to fetch from TMDB.'
+        setErrorMessage(message)
+        throw error
+      }
+
+      const relatedByKey = new Map<string, DiscoverEntity>()
+
+      for (const candidate of related) {
+        relatedByKey.set(entityKey(candidate), candidate)
+      }
+
+      const connectedKeys = getConnectedNodeKeys(nodeKey)
+      let added = 0
+      let alreadyConnected = 0
+      let hidden = 0
+      let missing = 0
+
+      for (const relationKey of relationKeys) {
+        const candidate = relatedByKey.get(relationKey)
+
+        if (!candidate) {
+          missing += 1
+          continue
+        }
+
+        if (connectedKeys.has(relationKey)) {
+          alreadyConnected += 1
+          continue
+        }
+
+        if (shouldSkipRelatedEntity(parentNode, candidate)) {
+          continue
+        }
+
+        const childPosition = expansionPosition(parentNode, parentNode.expansionCursor + added)
+        const ensured = ensureNode(candidate, childPosition)
+
+        if (ensured.blocked) {
+          hidden += 1
+          continue
+        }
+
+        ensureEdge(nodeKey, ensured.key)
+        connectedKeys.add(ensured.key)
+        added += 1
+      }
+
+      patchNode(nodeKey, {
+        totalRelated: related.length,
+      })
+      setErrorMessage(null)
+
+      return {
+        added,
+        alreadyConnected,
+        hidden,
+        missing,
+      }
+    },
+    [ensureEdge, ensureNode, expansionPosition, getConnectedNodeKeys, getOrFetchRelatedEntities, patchNode, shouldSkipRelatedEntity],
   )
 
   const handleNodeClick = useCallback(
@@ -831,8 +1016,8 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
       return null
     }
 
-    const menuWidth = 240
-    const menuHeight = 160
+    const menuWidth = 360
+    const menuHeight = 560
     const maxX = typeof window === 'undefined' ? contextMenu.x : window.innerWidth - menuWidth - 10
     const maxY = typeof window === 'undefined' ? contextMenu.y : window.innerHeight - menuHeight - 10
 
@@ -873,6 +1058,8 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     setErrorMessage,
     excludeSelfAppearances,
     setExcludeSelfAppearances,
+    includeCrewConnections,
+    setIncludeCrewConnections,
     hiddenEntityList,
     hiddenEntityKeys,
     contextNode,
@@ -884,6 +1071,9 @@ export function useGraphData({ viewportRef, cameraRef }: UseGraphDataParams): Us
     hideNodeFromBoard,
     pruneNodeLeaves,
     deleteNodeFromBoard,
+    loadRelatedSelectionOptions,
+    getConnectedNodeKeyList,
+    addSelectedRelations,
     handleNodeClick,
     getRemainingRelatedCount,
     clearCanvasSelection,

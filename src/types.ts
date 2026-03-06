@@ -6,6 +6,8 @@ export interface DiscoverEntity {
   title: string
   subtitle?: string
   creditRole?: string
+  creditCategory?: 'cast' | 'crew'
+  creditDepartment?: string
   imagePath: string | null
 }
 
