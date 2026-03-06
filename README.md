@@ -81,3 +81,28 @@ npm run bench:physics
 ```
 
 It prints average / p95 step time for several graph sizes. Lower `avg` and `p95` means less chance of frame drops from physics.
+
+## Screenshot Capture
+
+Capture both desktop and mobile layout screenshots from a running URL (or from a temporary local Vite server):
+
+```bash
+npm run screenshot:layouts
+```
+
+Optional arguments:
+
+```bash
+npm run screenshot:layouts -- --route / --out-dir artifacts/screenshots
+npm run screenshot:layouts -- --url http://127.0.0.1:5173 --route /
+```
+
+Output files:
+- `artifacts/screenshots/desktop.png`
+- `artifacts/screenshots/mobile.png`
+
+If Playwright browser binaries are missing, run:
+
+```bash
+npx playwright install chromium
+```

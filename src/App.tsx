@@ -63,15 +63,15 @@ function App() {
         searchResults={workspace.searchResults}
         searchOpen={workspace.searchOpen}
         searchOnlyMode={searchOnlyMode}
-        inputMode={workspace.inputMode}
         isPanning={workspace.isPanning || workspace.isWheeling}
-        physicsEnabled={workspace.physicsEnabled}
-        showPhysicsSettings={workspace.showPhysicsSettings}
         excludeSelfAppearances={workspace.excludeSelfAppearances}
         includeCrewConnections={workspace.includeCrewConnections}
         hiddenEntityList={workspace.hiddenEntityList}
-        physicsSettings={workspace.physicsSettings}
         errorMessage={workspace.errorMessage}
+        inputMode={workspace.inputMode}
+        physicsEnabled={workspace.physicsEnabled}
+        showPhysicsSettings={workspace.showPhysicsSettings}
+        physicsSettings={workspace.physicsSettings}
         tokenConfigurable={isTokenConfigurable}
         onQueryChange={workspace.handleQueryChange}
         onSearchFocus={workspace.handleSearchFocus}
@@ -82,13 +82,13 @@ function App() {
         onPhysicsEnabledChange={workspace.setPhysicsEnabled}
         onClearAllGraph={workspace.clearAllGraph}
         onTogglePhysicsSettings={workspace.togglePhysicsSettings}
+        onPhysicsSettingChange={workspace.updatePhysicsSetting}
+        onResetPhysics={workspace.resetGlobalPhysics}
+        onOpenTokenSettings={openTokenSettings}
         onExcludeSelfAppearancesChange={workspace.setExcludeSelfAppearances}
         onIncludeCrewConnectionsChange={workspace.setIncludeCrewConnections}
         onClearHiddenEntities={workspace.clearHiddenEntities}
         onUnhideEntity={workspace.unhideEntity}
-        onPhysicsSettingChange={workspace.updatePhysicsSetting}
-        onResetPhysics={workspace.resetGlobalPhysics}
-        onOpenTokenSettings={openTokenSettings}
       />
 
       <GraphCanvas

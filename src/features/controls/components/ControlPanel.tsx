@@ -3,10 +3,12 @@ import EntityAvatar from '../../../components/EntityAvatar'
 import Button from '../../../components/ui/Button'
 import PanelCard from '../../../components/ui/PanelCard'
 import { cn } from '../../../components/ui/cn'
-import type { DiscoverEntity, NodePhysics } from '../../../types'
+import type { DiscoverEntity } from '../../../types'
 import { entityKey } from '../../../types'
-import { PHYSICS_CONTROLS } from '../../graph/constants'
-import type { HiddenEntity, InputMode } from '../../graph/uiTypes'
+import type { HiddenEntity } from '../../graph/uiTypes'
+import type { InputMode } from '../../graph/uiTypes'
+import type { NodePhysics } from '../../../types'
+import SettingsMenu from './SettingsMenu'
 
 interface ControlPanelProps {
   query: string
@@ -14,15 +16,15 @@ interface ControlPanelProps {
   searchResults: DiscoverEntity[]
   searchOpen: boolean
   searchOnlyMode: boolean
-  inputMode: InputMode
   isPanning: boolean
-  physicsEnabled: boolean
-  showPhysicsSettings: boolean
   excludeSelfAppearances: boolean
   includeCrewConnections: boolean
   hiddenEntityList: HiddenEntity[]
-  physicsSettings: NodePhysics
   errorMessage: string | null
+  inputMode: InputMode
+  physicsEnabled: boolean
+  showPhysicsSettings: boolean
+  physicsSettings: NodePhysics
   tokenConfigurable: boolean
   onQueryChange: (value: string) => void
   onSearchFocus: () => void
@@ -33,25 +35,13 @@ interface ControlPanelProps {
   onPhysicsEnabledChange: (enabled: boolean) => void
   onClearAllGraph: () => void
   onTogglePhysicsSettings: () => void
+  onPhysicsSettingChange: (key: keyof NodePhysics, value: number) => void
+  onResetPhysics: () => void
+  onOpenTokenSettings: () => void
   onExcludeSelfAppearancesChange: (enabled: boolean) => void
   onIncludeCrewConnectionsChange: (enabled: boolean) => void
   onClearHiddenEntities: () => void
   onUnhideEntity: (key: string) => void
-  onPhysicsSettingChange: (key: keyof NodePhysics, value: number) => void
-  onResetPhysics: () => void
-  onOpenTokenSettings: () => void
-}
-
-const hintTextClass = 'px-0.5 text-[0.78rem] leading-snug text-slate-300 sm:text-[0.82rem]'
-
-function inputModeButtonClass(active: boolean, withLeftBorder = false): string {
-  return cn(
-    'flex-1 px-3 py-1.5 text-xs transition',
-    withLeftBorder && 'border-l border-slate-500/70',
-    active
-      ? 'bg-gradient-to-br from-cyan-300 to-sky-500 font-semibold text-slate-950'
-      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800/80',
-  )
 }
 
 function ControlPanel({
@@ -60,15 +50,15 @@ function ControlPanel({
   searchResults,
   searchOpen,
   searchOnlyMode,
-  inputMode,
   isPanning,
-  physicsEnabled,
-  showPhysicsSettings,
   excludeSelfAppearances,
   includeCrewConnections,
   hiddenEntityList,
-  physicsSettings,
   errorMessage,
+  inputMode,
+  physicsEnabled,
+  showPhysicsSettings,
+  physicsSettings,
   tokenConfigurable,
   onQueryChange,
   onSearchFocus,
@@ -79,18 +69,18 @@ function ControlPanel({
   onPhysicsEnabledChange,
   onClearAllGraph,
   onTogglePhysicsSettings,
+  onPhysicsSettingChange,
+  onResetPhysics,
+  onOpenTokenSettings,
   onExcludeSelfAppearancesChange,
   onIncludeCrewConnectionsChange,
   onClearHiddenEntities,
   onUnhideEntity,
-  onPhysicsSettingChange,
-  onResetPhysics,
-  onOpenTokenSettings,
 }: ControlPanelProps) {
   return (
     <header
       className={cn(
-        'absolute left-1/2 top-2 z-50 w-[calc(100vw-0.75rem)] max-w-[760px] -translate-x-1/2 rounded-2xl sm:top-[18px] sm:w-[calc(100vw-1.75rem)]',
+        'absolute left-1.5 right-1.5 top-2 z-50 max-w-[760px] rounded-2xl transition-[padding,background-color,border-color,box-shadow] duration-180 ease-out sm:left-1/2 sm:right-auto sm:top-[18px] sm:w-[calc(100vw-6.75rem)] sm:-translate-x-1/2',
         searchOnlyMode
           ? 'border-0 bg-transparent p-0 shadow-none'
           : isPanning
@@ -98,30 +88,52 @@ function ControlPanel({
             : 'max-h-[calc(100dvh-0.75rem)] overflow-y-auto border border-slate-500/55 bg-slate-950/70 p-2.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:max-h-[unset] sm:overflow-visible sm:p-3.5',
       )}
     >
-      <form className="flex flex-col gap-2 sm:gap-2.5 sm:flex-row" onSubmit={(event) => void onSearchSubmit(event)}>
+      <form className="flex items-center gap-1.5 sm:gap-2.5" onSubmit={(event) => void onSearchSubmit(event)}>
         <input
           type="search"
           value={query}
-          placeholder="Search actor, movie, or TV series"
+          placeholder="Search actor, movie, series"
           onFocus={onSearchFocus}
           onChange={(event) => onQueryChange(event.target.value)}
-          className="w-full rounded-xl border border-slate-500/70 bg-slate-900/85 px-3.5 py-2.5 text-[0.95rem] text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20"
+          className="min-w-0 flex-1 rounded-xl border border-slate-500/70 bg-slate-900/85 px-3 py-2.5 text-[0.95rem] text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/20 sm:px-3.5"
         />
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2.5">
+        <div className="flex shrink-0 gap-1.5 sm:gap-2.5">
           <button
             type="submit"
             disabled={searchLoading || query.trim().length < 2}
-            className="min-h-11 min-w-[84px] rounded-xl border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-3.5 py-2.5 text-sm font-bold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-10 min-w-[68px] rounded-xl border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-sky-500 px-2.5 py-2 text-sm font-bold text-slate-950 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-11 sm:min-w-[84px] sm:px-3.5 sm:py-2.5"
           >
-            {searchLoading ? 'Searching...' : 'Add'}
+            {searchLoading ? '...' : 'Add'}
           </button>
           <button
             type="button"
             onClick={onToggleSearchOnlyMode}
-            className="min-h-11 min-w-[96px] rounded-xl border border-slate-500/70 bg-slate-900/85 px-3 py-2.5 text-xs font-semibold text-slate-100 transition hover:border-cyan-300/55 hover:bg-slate-800/80"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-500/70 bg-slate-900/85 text-slate-100 transition hover:border-cyan-300/55 hover:bg-slate-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/55 sm:h-11 sm:w-11"
+            aria-label={searchOnlyMode ? 'Show filters' : 'Hide filters'}
+            title={searchOnlyMode ? 'Show filters' : 'Hide filters'}
           >
-            {searchOnlyMode ? 'Show All' : 'Hide All'}
+            <svg
+              viewBox="0 0 24 24"
+              className={cn('h-4 w-4 fill-current transition-transform duration-180 ease-out', searchOnlyMode ? 'rotate-0' : 'rotate-180')}
+              aria-hidden="true"
+            >
+              <path d="M12 16.4a1 1 0 0 1-.7-.29l-5.5-5.5a1 1 0 1 1 1.4-1.42L12 14l4.8-4.8a1 1 0 0 1 1.4 1.42l-5.5 5.5a1 1 0 0 1-.7.28Z" />
+            </svg>
           </button>
+          <SettingsMenu
+            inputMode={inputMode}
+            physicsEnabled={physicsEnabled}
+            showPhysicsSettings={showPhysicsSettings}
+            physicsSettings={physicsSettings}
+            tokenConfigurable={tokenConfigurable}
+            onInputModeChange={onInputModeChange}
+            onPhysicsEnabledChange={onPhysicsEnabledChange}
+            onClearAllGraph={onClearAllGraph}
+            onTogglePhysicsSettings={onTogglePhysicsSettings}
+            onPhysicsSettingChange={onPhysicsSettingChange}
+            onResetPhysics={onResetPhysics}
+            onOpenTokenSettings={onOpenTokenSettings}
+          />
         </div>
       </form>
 
@@ -155,51 +167,14 @@ function ControlPanel({
         </ul>
       )}
 
-      {!searchOnlyMode && (
-        <>
-          <div className="mt-2.5 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="grid w-full grid-cols-2 overflow-hidden rounded-lg border border-slate-500/70 lg:inline-flex lg:w-auto" role="group" aria-label="Input mode">
-              <button
-                type="button"
-                className={inputModeButtonClass(inputMode === 'mouse')}
-                onClick={() => onInputModeChange('mouse')}
-              >
-                Mouse Mode
-              </button>
-              <button
-                type="button"
-                className={inputModeButtonClass(inputMode === 'trackpad', true)}
-                onClick={() => onInputModeChange('trackpad')}
-              >
-                Trackpad Mode
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 lg:justify-end">
-              <label className="inline-flex items-center gap-2 text-[0.82rem] text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={physicsEnabled}
-                  onChange={(event) => onPhysicsEnabledChange(event.target.checked)}
-                  className="accent-cyan-300"
-                />
-                Live Physics
-              </label>
-              <Button tone="danger" className="ring-2 ring-rose-500/45" onClick={onClearAllGraph}>
-                Clear All
-              </Button>
-              <Button
-                disabled={!tokenConfigurable}
-                onClick={onOpenTokenSettings}
-              >
-                Set Token
-              </Button>
-              <Button onClick={onTogglePhysicsSettings}>
-                {showPhysicsSettings ? 'Hide Physics' : 'Show Physics'}
-              </Button>
-            </div>
-          </div>
-
+      <div
+        className={cn(
+          'grid overflow-hidden transition-[grid-template-rows,opacity] duration-180 ease-out',
+          searchOnlyMode ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100',
+        )}
+        aria-hidden={searchOnlyMode}
+      >
+        <div className="min-h-0">
           <PanelCard>
             <div className="flex items-center justify-between gap-2.5">
               <strong className="text-[0.86rem]">Global Filters</strong>
@@ -256,56 +231,10 @@ function ControlPanel({
               )}
             </div>
           </PanelCard>
+        </div>
+      </div>
 
-          {showPhysicsSettings && (
-            <PanelCard>
-              <div className="flex items-baseline justify-between gap-2.5">
-                <strong className="break-words text-[0.86rem] leading-tight whitespace-normal">Global Physics</strong>
-                <small className="text-[0.74rem] text-slate-300">Applies to all nodes</small>
-              </div>
-
-              <div className="mt-2.5 grid gap-x-2.5 gap-y-2 md:grid-cols-2 max-[780px]:grid-cols-1">
-                {PHYSICS_CONTROLS.map((control) => {
-                  const currentValue = physicsSettings[control.key]
-
-                  return (
-                    <label key={control.key} className="flex flex-col gap-1">
-                      <span className="flex items-center justify-between gap-2 text-[0.73rem] text-slate-300">
-                        {control.label}
-                        <b className="font-mono text-[0.71rem] text-cyan-100">{currentValue.toFixed(control.precision)}</b>
-                      </span>
-                      <input
-                        type="range"
-                        min={control.min}
-                        max={control.max}
-                        step={control.step}
-                        value={currentValue}
-                        onChange={(event) => onPhysicsSettingChange(control.key, Number.parseFloat(event.target.value))}
-                        className="w-full accent-cyan-300"
-                      />
-                    </label>
-                  )
-                })}
-              </div>
-
-              <div className="mt-2.5 flex justify-end">
-                <Button onClick={onResetPhysics}>
-                  Reset Physics
-                </Button>
-              </div>
-            </PanelCard>
-          )}
-
-          <p className={cn(hintTextClass, 'mt-2.5')}>
-            Click a bubble to load 10 connected results; click again for the next 10.
-          </p>
-          <p className={cn(hintTextClass, 'mt-1')}>Right-click a bubble for hide/prune/delete/manual-select actions.</p>
-          <p className={cn(hintTextClass, 'mt-1')}>
-            Touch: one finger pans and two fingers pinch-zoom. Trackpad mode: scroll to zoom, drag to pan.
-          </p>
-          {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
-        </>
-      )}
+      {errorMessage && <p className="mt-2.5 px-0.5 text-[0.84rem] text-rose-300">{errorMessage}</p>}
     </header>
   )
 }

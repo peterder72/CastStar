@@ -29,6 +29,23 @@ Use this file as the default operating guide for coding agents working in this r
 - Build: `npm run build`
 - UI smoke test: `npm run test:ui-render`
 - Physics benchmark: `npm run bench:physics`
+- Layout screenshots (desktop + mobile): `npm run screenshot:layouts`
+
+## Screenshot Workflow (Agent Capability)
+- Preferred command: `npm run screenshot:layouts`
+- Optional targeting:
+  - Use a running app URL: `npm run screenshot:layouts -- --url http://127.0.0.1:5173 --route /`
+  - Change output path: `npm run screenshot:layouts -- --out-dir artifacts/screenshots --route /`
+- Default outputs:
+  - `artifacts/screenshots/desktop.png`
+  - `artifacts/screenshots/mobile.png`
+- Inspection expectation:
+  - After capture, inspect both files with the image viewer tool using absolute paths.
+- One-time dependency setup:
+  - If Playwright browsers are missing: `npx playwright install chromium`
+- Troubleshooting:
+  - If screenshot capture appears stuck, terminate stale runs with:
+    - `pkill -f "scripts/capture-layout-screenshots.ts"`
 
 ## Required Validation Before Finishing
 Run the minimum checks that match your change scope:
@@ -72,4 +89,3 @@ CI currently runs:
 - `npm run bench:physics`
 
 Keep changes compatible with this pipeline.
-
