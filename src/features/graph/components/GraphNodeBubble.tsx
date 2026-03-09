@@ -87,7 +87,7 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
       type="button"
       data-node="true"
       className={cn(
-        'group absolute flex w-[190px] -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[170px] max-[780px]:p-2 max-[560px]:w-[152px] max-[560px]:gap-2',
+        'group absolute flex w-[212px] -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[190px] max-[780px]:p-2 max-[560px]:w-[170px] max-[560px]:gap-2',
         nodeKindClass[node.kind],
         selected && 'border-cyan-100/95 ring-2 ring-cyan-100/25',
       )}
