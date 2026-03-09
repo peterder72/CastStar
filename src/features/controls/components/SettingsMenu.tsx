@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { Settings as SettingsIcon } from 'lucide-react'
 import Button from '../../../components/ui/Button'
 import PanelCard from '../../../components/ui/PanelCard'
 import { cn } from '../../../components/ui/cn'
@@ -472,9 +473,7 @@ function SettingsMenu({
           aria-controls={POPOVER_ID}
           title="Settings"
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
-            <path d="M19.49 12.98a7.87 7.87 0 0 0 .06-.98a7.87 7.87 0 0 0-.06-.98l2.11-1.64a.5.5 0 0 0 .12-.65l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.5 7.5 0 0 0-1.7-.98l-.38-2.65a.5.5 0 0 0-.5-.42h-4a.5.5 0 0 0-.5.42l-.38 2.65a7.5 7.5 0 0 0-1.7.98l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.65l2.11 1.64a7.87 7.87 0 0 0-.06.98a7.87 7.87 0 0 0 .06.98L2.4 14.62a.5.5 0 0 0-.12.65l2 3.46a.5.5 0 0 0 .6.22l2.49-1c.53.4 1.1.73 1.7.98l.38 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65c.6-.25 1.17-.58 1.7-.98l2.49 1a.5.5 0 0 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.65ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" />
-          </svg>
+          <SettingsIcon className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
 

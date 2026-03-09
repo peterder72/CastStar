@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Clapperboard, TvMinimal, UserRound, type LucideIcon } from 'lucide-react'
 import EntityAvatar from '../../../components/EntityAvatar'
 import type { GraphNode, NodeKind } from '../../../types'
 import { EXPAND_BATCH_SIZE } from '../constants'
@@ -18,6 +19,16 @@ const nodeKindClass: Record<NodeKind, string> = {
   person: 'border-cyan-300/45',
   movie: 'border-amber-300/45',
   tv: 'border-emerald-300/45',
+}
+const nodeKindIconClass: Record<NodeKind, string> = {
+  person: 'text-cyan-200',
+  movie: 'text-amber-200',
+  tv: 'text-emerald-200',
+}
+const nodeKindIcon: Record<NodeKind, LucideIcon> = {
+  person: UserRound,
+  movie: Clapperboard,
+  tv: TvMinimal,
 }
 const LONG_PRESS_MS = 430
 const LONG_PRESS_MOVE_THRESHOLD = 12
@@ -43,6 +54,7 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
   const longPressStartPointRef = useRef<Point | null>(null)
   const longPressTriggeredRef = useRef(false)
   const longPressTimerRef = useRef<number | null>(null)
+  const NodeKindIcon = nodeKindIcon[node.kind]
 
   const clearLongPressTimer = (): void => {
     if (longPressTimerRef.current !== null) {
@@ -165,7 +177,7 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
         title={node.title}
         className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-400/70 bg-slate-700 text-[0.8rem] font-bold max-[780px]:h-12 max-[780px]:w-12 max-[560px]:h-10 max-[560px]:w-10"
       />
-      <span className="min-w-0">
+      <span className="min-w-0 pr-4">
         <strong className="block break-words text-[0.94rem] leading-tight whitespace-normal max-[560px]:text-[0.85rem]">{node.title}</strong>
         {node.subtitle && (
           <small className="block break-words text-[0.75rem] leading-tight whitespace-normal text-slate-300 max-[560px]:text-[0.7rem]">
@@ -175,6 +187,9 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
         <small className="block break-words text-[0.74rem] leading-tight whitespace-normal text-cyan-200 max-[560px]:text-[0.7rem]">
           {nodeStatusLabel(node, remaining)}
         </small>
+      </span>
+      <span className={cn('pointer-events-none absolute right-2.5 top-2.5', nodeKindIconClass[node.kind])}>
+        <NodeKindIcon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
       </span>
     </button>
   )

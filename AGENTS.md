@@ -47,11 +47,37 @@ Use this file as the default operating guide for coding agents working in this r
   - If screenshot capture appears stuck, terminate stale runs with:
     - `pkill -f "scripts/capture-layout-screenshots.ts"`
 
+## Browser Debug Workflow
+- For UI regressions, inspect the current diff first (`git status --short`, `git diff --name-only`, then `git diff` for the relevant files) before changing code.
+- If the task involves reproducing or verifying behavior in a real browser, use the `$playwright` skill and follow its CLI-first workflow.
+- Required prerequisite for the Playwright CLI skill: `command -v npx >/dev/null 2>&1`
+- Preferred Playwright CLI setup:
+  - `export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"`
+  - `export PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"`
+- Browser debugging expectations:
+  - Start or reuse a local dev server.
+  - Open the app in a headed browser when layout/rendering is part of the bug.
+  - Use `snapshot` before interacting with element refs, and re-snapshot after significant UI changes.
+  - Prefer demo-mode or local reproducible flows over external dependencies when possible.
+  - Capture a regression screenshot before the fix and a verification screenshot after the fix.
+- Artifact location for browser-debug runs:
+  - Store screenshots in `output/playwright/`
+- If Playwright cannot launch because browsers are missing:
+  - `npx playwright install chromium`
+  - If the Playwright CLI requires Chrome channel support on this machine: `npx playwright install chrome`
+
 ## Required Validation Before Finishing
 Run the minimum checks that match your change scope:
 - UI/logic change: `npm run test:ui-render` and `npm run build`
 - Type/lint/config change: `npm run lint` and `npm run build`
 - Physics or expansion algorithm change: `npm run bench:physics` plus `npm run build`
+- Visual regression/UI rendering fix:
+  - Reproduce the issue in-browser first.
+  - Capture a pre-fix screenshot.
+  - Apply the fix.
+  - Run `npm run test:ui-render` and `npm run build`.
+  - Capture a post-fix screenshot.
+  - Inspect the final screenshot with the image viewer tool using an absolute path before finishing.
 
 If you cannot run a check, explicitly report that in your final summary.
 

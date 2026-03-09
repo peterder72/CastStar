@@ -1,4 +1,5 @@
 import { memo, type FormEvent } from 'react'
+import { ChevronUp } from 'lucide-react'
 import EntityAvatar from '../../../components/EntityAvatar'
 import Button from '../../../components/ui/Button'
 import PanelCard from '../../../components/ui/PanelCard'
@@ -116,13 +117,10 @@ function ControlPanel({
             aria-label={searchOnlyMode ? 'Show filters' : 'Hide filters'}
             title={searchOnlyMode ? 'Show filters' : 'Hide filters'}
           >
-            <svg
-              viewBox="0 0 24 24"
-              className={cn('h-4 w-4 fill-current transition-transform duration-180 ease-out', searchOnlyMode ? 'rotate-0' : 'rotate-180')}
+            <ChevronUp
+              className={cn('h-4 w-4 transition-transform duration-180 ease-out', searchOnlyMode ? 'rotate-0' : 'rotate-180')}
               aria-hidden="true"
-            >
-              <path d="M12 16.4a1 1 0 0 1-.7-.29l-5.5-5.5a1 1 0 1 1 1.4-1.42L12 14l4.8-4.8a1 1 0 0 1 1.4 1.42l-5.5 5.5a1 1 0 0 1-.7.28Z" />
-            </svg>
+            />
           </button>
           <SettingsMenu
             inputMode={inputMode}
