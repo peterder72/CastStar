@@ -153,6 +153,7 @@ export function useGraphWorkspace(options: UseGraphWorkspaceOptions = {}) {
 
   return {
     viewportRef,
+    cameraScale: camera.scale,
     nodes: data.nodes,
     isPanning: gestures.isPanning,
     query: search.query,

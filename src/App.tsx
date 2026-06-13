@@ -13,7 +13,7 @@ const REPOSITORY_URL = 'https://github.com/peterder72/CastStar'
 const APP_VERSION_LABEL = `v${__APP_VERSION__}`
 
 function App() {
-  const [searchOnlyMode, setSearchOnlyMode] = useState(false)
+  const [searchOnlyMode, setSearchOnlyMode] = useState(true)
   const [tokenModalKey, setTokenModalKey] = useState(0)
   const [tokenModalOpen, setTokenModalOpen] = useState(false)
   const { trigger: triggerHaptic } = useWebHaptics()
@@ -98,6 +98,7 @@ function App() {
         viewportRef={workspace.viewportRef}
         isPanning={workspace.isPanning}
         inputMode={workspace.inputMode}
+        cameraScale={workspace.cameraScale}
         gridSize={workspace.gridSize}
         gridOffsetX={workspace.gridOffsetX}
         gridOffsetY={workspace.gridOffsetY}

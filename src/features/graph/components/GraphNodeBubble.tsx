@@ -9,6 +9,7 @@ import { cn } from '../../../components/ui/cn'
 interface GraphNodeBubbleProps {
   node: GraphNode
   screenPoint: Point
+  cameraScale: number
   remaining: number
   selected: boolean
   onNodeClick: (nodeKey: string) => void
@@ -36,6 +37,15 @@ const nodeKindIcon: Record<NodeKind, LucideIcon> = {
 }
 const LONG_PRESS_MS = 430
 const LONG_PRESS_MOVE_THRESHOLD = 12
+const MIN_NODE_VISUAL_SCALE = 0.62
+
+export function getNodeVisualScale(cameraScale: number): number {
+  if (cameraScale >= 1) {
+    return 1
+  }
+
+  return Math.max(MIN_NODE_VISUAL_SCALE, 0.6 + cameraScale * 0.4)
+}
 
 function nodeStatusLabel(node: GraphNode, remaining: number): string {
   if (node.loading) {
@@ -56,6 +66,7 @@ function nodeStatusLabel(node: GraphNode, remaining: number): string {
 function GraphNodeBubble({
   node,
   screenPoint,
+  cameraScale,
   remaining,
   selected,
   onNodeClick,
@@ -71,6 +82,7 @@ function GraphNodeBubble({
   const touchMovedRef = useRef(false)
   const longPressTimerRef = useRef<number | null>(null)
   const NodeKindIcon = nodeKindIcon[node.kind]
+  const visualScale = getNodeVisualScale(cameraScale)
 
   const clearLongPressTimer = (): void => {
     if (longPressTimerRef.current !== null) {
@@ -103,13 +115,14 @@ function GraphNodeBubble({
       type="button"
       data-node="true"
       className={cn(
-        'group absolute flex w-[212px] touch-none -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[190px] max-[780px]:p-2 max-[560px]:w-[170px] max-[560px]:gap-2',
+        'group absolute flex w-[212px] touch-none items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[190px] max-[780px]:p-2 max-[560px]:w-[170px] max-[560px]:gap-2',
         nodeKindClass[node.kind],
         selected && 'border-cyan-100/95 ring-2 ring-cyan-100/25',
       )}
       style={{
         left: `${screenPoint.x}px`,
         top: `${screenPoint.y}px`,
+        transform: `translate(-50%, -50%) scale(${visualScale})`,
       }}
       onClick={(event) => {
         event.stopPropagation()

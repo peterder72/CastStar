@@ -7,6 +7,7 @@ interface GraphCanvasProps {
   viewportRef: RefObject<HTMLDivElement | null>
   isPanning: boolean
   inputMode: InputMode
+  cameraScale: number
   gridSize: number
   gridOffsetX: number
   gridOffsetY: number
@@ -30,6 +31,7 @@ function GraphCanvas({
   viewportRef,
   isPanning,
   inputMode,
+  cameraScale,
   gridSize,
   gridOffsetX,
   gridOffsetY,
@@ -110,6 +112,7 @@ function GraphCanvas({
             key={node.key}
             node={node}
             screenPoint={screenPoint}
+            cameraScale={cameraScale}
             remaining={remaining}
             selected={selected}
             onNodeClick={onNodeClick}
