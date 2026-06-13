@@ -3,6 +3,7 @@ import { Clapperboard, TvMinimal, UserRound, type LucideIcon } from 'lucide-reac
 import EntityAvatar from '../../../components/EntityAvatar'
 import type { GraphNode, NodeKind } from '../../../types'
 import { EXPAND_BATCH_SIZE } from '../constants'
+import { getNodeVisualScale } from '../nodeVisualScale'
 import type { Point } from '../uiTypes'
 import { cn } from '../../../components/ui/cn'
 
@@ -37,15 +38,6 @@ const nodeKindIcon: Record<NodeKind, LucideIcon> = {
 }
 const LONG_PRESS_MS = 430
 const LONG_PRESS_MOVE_THRESHOLD = 12
-const MIN_NODE_VISUAL_SCALE = 0.62
-
-export function getNodeVisualScale(cameraScale: number): number {
-  if (cameraScale >= 1) {
-    return 1
-  }
-
-  return Math.max(MIN_NODE_VISUAL_SCALE, 0.6 + cameraScale * 0.4)
-}
 
 function nodeStatusLabel(node: GraphNode, remaining: number): string {
   if (node.loading) {
