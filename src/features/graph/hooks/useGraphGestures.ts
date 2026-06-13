@@ -250,15 +250,8 @@ export function useGraphGestures({ viewportRef, inputMode, trackpadSensitivity, 
   }, [flushPanDelta])
 
   const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>): void => {
-      const target = event.target as HTMLElement
-      const isNodeTarget = Boolean(target.closest('[data-node]'))
-
+    (event: ReactPointerEvent<HTMLElement>): void => {
       if (event.pointerType === 'touch') {
-        if (isNodeTarget) {
-          return
-        }
-
         const point = {
           x: event.clientX,
           y: event.clientY,
@@ -318,10 +311,6 @@ export function useGraphGestures({ viewportRef, inputMode, trackpadSensitivity, 
         return
       }
 
-      if (isNodeTarget) {
-        return
-      }
-
       if (inputMode === 'trackpad') {
         return
       }
@@ -342,7 +331,7 @@ export function useGraphGestures({ viewportRef, inputMode, trackpadSensitivity, 
   )
 
   const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>): void => {
+    (event: ReactPointerEvent<HTMLElement>): void => {
       if (event.pointerType === 'touch') {
         const touchPoints = touchPointsRef.current
         const point = touchPoints.get(event.pointerId)
@@ -415,7 +404,7 @@ export function useGraphGestures({ viewportRef, inputMode, trackpadSensitivity, 
   )
 
   const stopPanning = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>): void => {
+    (event: ReactPointerEvent<HTMLElement>): void => {
       if (event.pointerType === 'touch') {
         const touchPoints = touchPointsRef.current
         touchPoints.delete(event.pointerId)

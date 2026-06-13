@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { Clapperboard, TvMinimal, UserRound, type LucideIcon } from 'lucide-react'
 import EntityAvatar from '../../../components/EntityAvatar'
 import type { GraphNode, NodeKind } from '../../../types'
@@ -13,6 +13,10 @@ interface GraphNodeBubbleProps {
   selected: boolean
   onNodeClick: (nodeKey: string) => void
   onNodeContextMenu: (nodeKey: string, x: number, y: number) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void
 }
 
 const nodeKindClass: Record<NodeKind, string> = {
@@ -49,10 +53,22 @@ function nodeStatusLabel(node: GraphNode, remaining: number): string {
   return 'No more new connections'
 }
 
-function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, onNodeContextMenu }: GraphNodeBubbleProps) {
+function GraphNodeBubble({
+  node,
+  screenPoint,
+  remaining,
+  selected,
+  onNodeClick,
+  onNodeContextMenu,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+}: GraphNodeBubbleProps) {
   const longPressPointerIdRef = useRef<number | null>(null)
   const longPressStartPointRef = useRef<Point | null>(null)
   const longPressTriggeredRef = useRef(false)
+  const touchMovedRef = useRef(false)
   const longPressTimerRef = useRef<number | null>(null)
   const NodeKindIcon = nodeKindIcon[node.kind]
 
@@ -87,7 +103,7 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
       type="button"
       data-node="true"
       className={cn(
-        'group absolute flex w-[212px] -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[190px] max-[780px]:p-2 max-[560px]:w-[170px] max-[560px]:gap-2',
+        'group absolute flex w-[212px] touch-none -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-2xl border bg-slate-950/88 p-2.5 text-left text-slate-100 shadow-[0_18px_30px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:border-cyan-200/80 max-[780px]:w-[190px] max-[780px]:p-2 max-[560px]:w-[170px] max-[560px]:gap-2',
         nodeKindClass[node.kind],
         selected && 'border-cyan-100/95 ring-2 ring-cyan-100/25',
       )}
@@ -97,17 +113,14 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
       }}
       onClick={(event) => {
         event.stopPropagation()
-        if (longPressTriggeredRef.current) {
+        if (longPressTriggeredRef.current || touchMovedRef.current) {
           longPressTriggeredRef.current = false
+          touchMovedRef.current = false
           return
         }
         onNodeClick(node.key)
       }}
       onPointerDown={(event) => {
-        if (event.pointerType !== 'touch') {
-          return
-        }
-
         if (longPressPointerIdRef.current !== null && longPressPointerIdRef.current !== event.pointerId) {
           clearLongPressTimer()
           longPressPointerIdRef.current = null
@@ -116,55 +129,67 @@ function GraphNodeBubble({ node, screenPoint, remaining, selected, onNodeClick, 
         }
 
         longPressTriggeredRef.current = false
+        touchMovedRef.current = false
         longPressPointerIdRef.current = event.pointerId
         longPressStartPointRef.current = {
           x: event.clientX,
           y: event.clientY,
         }
-        event.currentTarget.setPointerCapture(event.pointerId)
 
         clearLongPressTimer()
-        const contextX = event.clientX
-        const contextY = event.clientY
 
-        longPressTimerRef.current = window.setTimeout(() => {
-          longPressTriggeredRef.current = true
-          longPressTimerRef.current = null
-          onNodeContextMenu(node.key, contextX, contextY)
-        }, LONG_PRESS_MS)
+        if (event.pointerType === 'touch') {
+          const contextX = event.clientX
+          const contextY = event.clientY
+
+          longPressTimerRef.current = window.setTimeout(() => {
+            longPressTriggeredRef.current = true
+            longPressTimerRef.current = null
+            onNodeContextMenu(node.key, contextX, contextY)
+          }, LONG_PRESS_MS)
+        }
+
+        event.stopPropagation()
+        onPointerDown(event)
       }}
       onPointerMove={(event) => {
-        if (event.pointerType !== 'touch' || longPressPointerIdRef.current !== event.pointerId) {
+        if (longPressPointerIdRef.current !== event.pointerId) {
           return
         }
 
         const startPoint = longPressStartPointRef.current
 
-        if (!startPoint || longPressTimerRef.current === null) {
-          return
+        if (startPoint) {
+          const movedX = event.clientX - startPoint.x
+          const movedY = event.clientY - startPoint.y
+          const movedDistance = Math.hypot(movedX, movedY)
+
+          if (movedDistance > LONG_PRESS_MOVE_THRESHOLD) {
+            touchMovedRef.current = true
+            clearLongPressTimer()
+          }
         }
 
-        const movedX = event.clientX - startPoint.x
-        const movedY = event.clientY - startPoint.y
-        const movedDistance = Math.hypot(movedX, movedY)
-
-        if (movedDistance > LONG_PRESS_MOVE_THRESHOLD) {
-          clearLongPressTimer()
-        }
+        event.stopPropagation()
+        onPointerMove(event)
       }}
       onPointerUp={(event) => {
-        if (event.pointerType !== 'touch' || longPressPointerIdRef.current !== event.pointerId) {
+        if (longPressPointerIdRef.current !== event.pointerId) {
           return
         }
 
         resetTouchLongPress(event.currentTarget, event.pointerId)
+        event.stopPropagation()
+        onPointerUp(event)
       }}
       onPointerCancel={(event) => {
-        if (event.pointerType !== 'touch' || longPressPointerIdRef.current !== event.pointerId) {
+        if (longPressPointerIdRef.current !== event.pointerId) {
           return
         }
 
         resetTouchLongPress(event.currentTarget, event.pointerId)
+        event.stopPropagation()
+        onPointerCancel(event)
       }}
       onContextMenu={(event) => {
         event.preventDefault()

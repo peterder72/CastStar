@@ -189,13 +189,19 @@ function SettingsMenu({
 
     window.addEventListener('keydown', handleKeyDown)
 
+    let positionFrame: number | null = null
+
     if (!isMobile) {
       window.addEventListener('resize', updateDesktopPanelPosition)
       window.addEventListener('scroll', updateDesktopPanelPosition, true)
-      updateDesktopPanelPosition()
+      positionFrame = window.requestAnimationFrame(updateDesktopPanelPosition)
     }
 
     return () => {
+      if (positionFrame !== null) {
+        window.cancelAnimationFrame(positionFrame)
+      }
+
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('resize', updateDesktopPanelPosition)
       window.removeEventListener('scroll', updateDesktopPanelPosition, true)

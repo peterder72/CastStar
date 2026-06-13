@@ -16,10 +16,10 @@ interface GraphCanvasProps {
   selectedNodeKey: string | null
   toScreenPoint: (node: GraphNode) => Point
   getRemainingRelatedCount: (node: GraphNode) => number
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void
+  onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void
   onWheel: (event: WheelEvent<HTMLDivElement>) => void
   onCanvasClick: () => void
   onNodeClick: (nodeKey: string) => void
@@ -114,6 +114,10 @@ function GraphCanvas({
             selected={selected}
             onNodeClick={onNodeClick}
             onNodeContextMenu={onNodeContextMenu}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
           />
         )
       })}
